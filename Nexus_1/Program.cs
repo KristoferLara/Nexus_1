@@ -1,4 +1,5 @@
 ﻿using System.Threading;
+using System.Timers;
 
 class Program
 {
@@ -6,6 +7,31 @@ class Program
     static int turnosBloqueoIris = 0;
     static bool anomaliaLocalizada = false;
     static string ubicacionAnomalia = "Desconocida";
+    static bool tieneDetector = true;
+    static bool tieneDron = false;
+    static bool tienePEM = false;
+    static bool tieneEnergia = true;
+    static bool tieneDesconectar = true;
+    static void EscribirConEfecto(string texto, int velocidadMilisegundos = 50)
+    {
+        foreach (char letra in texto)
+        {
+            Console.Write(letra);
+            Thread.Sleep(velocidadMilisegundos);
+        }
+        Console.WriteLine();
+    }
+    static void MostrarTexto(string mensaje, bool espacioExtra =false, int pausa = 800)
+    {
+        EscribirConEfecto(mensaje);
+        Thread.Sleep(pausa);
+
+        if (espacioExtra)
+        {
+            Console.WriteLine();
+        }
+    }
+        
     static event Action<int> AnomaliaDetectada;
     static void AnimacionIris()
     {
@@ -102,20 +128,57 @@ class Program
                        ╚═════════════════════════════════════════════╝
     ");
         Console.ResetColor();        
-        }   
-    
+        }
+
     static void Main()
     {
-        MostrarLogo();
+
+        Console.Clear();
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("           AÑO 2297.");
-        Console.WriteLine("           Bienvenido, Cadete de Explorador.");
+        Console.WriteLine("╔════════════════════════════════════════╗");
+        Console.WriteLine("║         NEXUS   SYSTEM          ║");
+        Console.WriteLine("╚════════════════════════════════════════╝");
+
         Console.WriteLine();
+        Console.WriteLine("           AÑO 2297");
+        Console.WriteLine();
+
+
+        MostrarTexto("NEXUS: Recuperando archivos historicos......", espacioExtra: true);
+
+        MostrarTexto("ARCHIVO RECUPERADO: IRIS");
+        MostrarTexto("ORIGEN: UNIFRANZ");
+        MostrarTexto("FECHA DE INICIO: 2026", espacioExtra: true);
+
+        MostrarTexto("NEXUS:");
+        MostrarTexto("En el año 2026 se inicio un proyecto experimental en un servidor de UNIFRANZ", espacioExtra: true);
+
+        MostrarTexto("El sistema fue denominado IRIS Su objetivo era analizar grandes cantidades");
+        MostrarTexto("de informacion y detectar patrones anomalos.", espacioExtra: true);
+
+        MostrarTexto("El proyecto fue cancelado despues de que IRIS comenzara a detectar patrones que");
+        MostrarTexto("ningun investigador podia explicar.", espacioExtra: true);
+
+        MostrarTexto("El servidor fue desconectado y el proyecto fue declarado perdido.", espacioExtra: true);
+
+        MostrarTexto("AÑO 2297........AÑO ACTUAL.....", espacioExtra: true);
+
+        MostrarTexto("NEXUS:");
+        MostrarTexto("Los registros indican que IRIS nunca desaparecio", espacioExtra: true);
+
+        MostrarTexto("Ahora necesitamos decubrir que encontro IRIS y porque se cancelo.", espacioExtra: true);
+
+        Console.WriteLine("Presiona ENTER y descubramoslo juntos...");
+        Console.ReadLine();
+
+        Console.Clear();
+
         Console.ResetColor();
 
         string nombre;
         while (true)
         {
+            MostrarLogo();
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.Write("           Ingrese su nombre: ");
             Console.ResetColor();
@@ -281,6 +344,10 @@ class Program
             };
 
             bool conectado = true;
+            bool tieneDron = false;
+            bool tienePulso = false;
+            bool pulsoActivo = false;
+            int turnosPulso = 0;
 
             while (conectado)
             {
@@ -294,6 +361,15 @@ class Program
                 Console.WriteLine("╠══════════════════════════════════════════════╣");
                 MostrarBarra("Energia", energia);
                 MostrarBarra("Estabilidad", estabilidad);
+                Console.WriteLine();
+                Console.WriteLine("EQUIPAMIENTO:");
+
+                Console.WriteLine("Detector: " + (tieneDetector ? "DISPONIBLE" : "NO DISPONIBLE"));
+                Console.WriteLine("DRON: " + (tieneDron ? "DISPONIBLE" : "NO DISPONIBLE"));
+                Console.WriteLine("PEM:" + (tienePEM ? "DISPONIBLE" : "NO DISPONIBLE"));
+                Console.WriteLine("ENERGIA:" + (tieneEnergia ? "DISPONIBLE" : "NO DISPONIBLE"));
+
+
                 if (anomaliaLocalizada)
                 {
                     Console.WriteLine("║ ANOMALIA: LOCALIZADA - " + ubicacionAnomalia);
@@ -312,7 +388,7 @@ class Program
                 }
                 Console.WriteLine("╠══════════════════════════════════════════════╣");
                 Console.WriteLine("║                                              ║");
-                Console.WriteLine("║  [1] ▶Iniciar exploracion                    ║");
+                Console.WriteLine("║  [1] ▶Iniciar deteccion                      ║");
                 Console.WriteLine("║  [2] ◉Desplegar dron                         ║");
                 Console.WriteLine("║  [3]⚡Emitir pulso electromagnetico          ║");
                 Console.WriteLine("║  [4] +Protocolo de recuperacion              ║");
@@ -325,6 +401,13 @@ class Program
                 switch (opcion)
                 {
                     case "1":
+                        if (pulsoActivo)
+                        {
+                            Console.WriteLine();
+                            Console.WriteLine("NEXUS: El pulso electromagnetico esta activo.");
+                            Console.WriteLine("Nexus: Los sistemas de exploracion estan bloqueados.");
+                            break;
+                        }
                         if (energia <= 15)
                         {
                             Console.WriteLine("NEXUS: ⚡Energia insuficiente para explorar la realidad.");
@@ -378,8 +461,35 @@ class Program
                         break;
 
                     case "2":
-                        if (energia < 5)
+                        if (pulsoActivo)
                         {
+                            Console.WriteLine();
+                            Console.WriteLine("NEXUS: El pulso electromagnetico esta activo.");
+                            Console.WriteLine("NEXUS: Los sistemas del dron no responden.");
+                            break;
+                        }
+
+                        if (!tieneDron)
+                        {
+                            Console.WriteLine();
+                            Console.WriteLine("NEXUS: Señal de tecnologia desconocida detectada.");
+                            Console.WriteLine("NEXUS: Explorador, investigue la ubicacion.");
+
+                            tieneDron = true;
+
+                            Console.WriteLine();
+                            Console.WriteLine("OBJETO RECUPERADO: DRON DE RECONOCIMIENTO");
+                            Console.WriteLine("NEXUS: El dispositivo todavia parece funcional");
+
+                            Console.WriteLine();
+                            Console.WriteLine("NEXUS: Se ha detectado modulo electromagnetico");
+                            Console.WriteLine("NUEVA CAPACIDAD: PULSO ELECTROMAGNETICO");
+
+                            tienePulso = true;
+                        }
+                        else if (energia < 5)
+                        {
+                            Console.WriteLine();
                             Console.WriteLine("NEXUS: Energia insuficiente para desplegar el dron.");
                         }
                         else
@@ -418,9 +528,26 @@ class Program
                         break;
 
                     case "3":
+                        if (!tienePEM)
+                        {
+                            Console.WriteLine();
+                            Console.WriteLine("NEXUS: Generador PEM no disponible.");
+                            Console.WriteLine("NEXUS: Debes encontrar tecnologia adicional.");
+                            break;
+                        }
+
+                        if (pulsoActivo)
+                        {
+                            Console.WriteLine();
+                            Console.WriteLine("NEXUS: El pulso electromagnrtico ya esta activo.");
+                            break;
+                        }
+
                         if(energia < 15)
                         {
+                            Console.WriteLine();
                             Console.WriteLine("NEXUS: Energia insuficiente para emitir el pulso.");
+                            break;
                         }         
                         else 
                         {
@@ -433,7 +560,11 @@ class Program
                                 Console.WriteLine("NEXUS: Potencia al 70%...");
                                 Thread.Sleep(500);
                                 Console.WriteLine("NEXUS: ⚡PULSO ELECTROMAGNETICO EMITIDO.");
+
                                 turnosBloqueoIris = 3;
+                                turnosPulso = 3;
+                                pulsoActivo = true;
+
                                 Console.WriteLine("IRIS: ERROR DE SEÑAL");
                                 Console.WriteLine("NEXUS: IRIS Ha perdido temporalmente la conexion.");
                                 Console.WriteLine("NEXUS:Bloqueo activo durante 3 turnos");
@@ -496,6 +627,8 @@ class Program
                             Console.WriteLine();
                             Console.WriteLine("IRIS: Conexion restablecida.");
                             Console.WriteLine("NEXUS: El bloqueo electromagnetico ha terminado.");
+
+                            pulsoActivo = false;
                         }
                     }
                     if (EvaluarRiesgoIris(energia, estabilidad))
