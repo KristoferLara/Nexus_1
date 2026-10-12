@@ -11,12 +11,6 @@ class Program
 {
     const int EstabilidadMinimaDesconexion = 15;
 
-    // ===== SISTEMA DE CLASES DE CADETE =====
-    // Costos de las acciones especiales por clase
-    const int CostoAtaqueFisico = 10;
-    const int CostoAtaqueFuerte = 25;
-    const int CostoHabilidadMana = 20;
-
     // ===== SISTEMA DE PODER =====
     const int UmbralPoderHabilidad = 100;       // Poder necesario para activar la capacidad especial
     const int DuracionCapacidadEspecial = 3;   // Turnos que dura el efecto activo
@@ -26,7 +20,6 @@ class Program
     // ===== SISTEMA DE BOTIQUINES =====
     const int CuracionBotiquin = 25;   // Punto 5: vida recuperada al usar un botiquín del mapa
 
-    static Random rng = new Random();
     static event Action<int> AnomaliaDetectada;
 
     class EstadoJuego
@@ -36,7 +29,6 @@ class Program
         // Energia ya no se guarda aquí: ahora vive únicamente en MiCadete.Energia (POO).
         // Estabilidad ya no se guarda aquí: ahora vive únicamente en MiCadete.Estabilidad (POO).
         public bool Conectado = true;
-        public bool BienvenidaNexusMostrada = false;
 
         // ===== SISTEMA IRIS (POO) =====
         // El bloqueo temporal y la anomalía localizada ahora viven en la clase Iris.
@@ -84,6 +76,25 @@ class Program
         // ===== CLASE CADETE (POO) =====
         // Representa al cadete/explorador dentro de NEXUS.
         public Cadete MiCadete;
+
+        // ===== SISTEMA DE MISIONES (POO) =====
+        // Las 3 misiones, en el orden obligatorio: LIQUIDO, FUEGO, VENENO.
+        // MisionActualIndice solo avanza cuando el Terminal de la Base entrega
+        // la recompensa (ver InteractuarTerminalBase), nunca al derrotar al
+        // enemigo. Eso es lo que garantiza que sean secuenciales.
+        public List<Mision> Misiones = new List<Mision>
+        {
+            new Mision(1, "💧 EL PRIMER OBJETIVO", "Derrota al enemigo LIQUIDO (6,5).", "LIQUIDO",
+                "Este enemigo reduce el daño de tus ataques. Ataca rápido antes de que te desgaste.", 20, 50),
+            new Mision(2, "🔥 LA PRUEBA DE FUEGO", "Derrota al enemigo FUEGO (4,8).", "FUEGO",
+                "Este enemigo golpea cada vez más fuerte. Cuida tu vida y no alargues el combate.", 20, 50),
+            new Mision(3, "☠ EL ÚLTIMO VENENO", "Derrota al enemigo VENENO (2,3).", "VENENO",
+                "Este enemigo te quita vida en cada turno. Termina el combate lo antes posible.", 20, 50),
+        };
+        public int MisionActualIndice = 0;
+
+        // La misión vigente, o null si ya se completaron las 3.
+        public Mision MisionActual => (MisionActualIndice < Misiones.Count) ? Misiones[MisionActualIndice] : null;
     }
 
     // =====================================================
@@ -112,7 +123,7 @@ class Program
                 { '|', '·', '·', '·', '⚠', '·', '·', 'A', '·', '·', '|' },
                 { '|', '·', '◆', '·', '·', '·', 'A', '·', '·', '·', '|' },
                 { '|', '·', '·', '·', '·', '◆', '·', '·', '·', '·', '|' },
-                { '|', '·', '·', '·', '·', '·', '·', '·', '·', '·', '|' },
+                { '|', '·', '·', '·', '·', '·', '·', '·', '·', '◆', '|' },
                 { '|', '|', '|', '|', '|', '|', '|', '|', '|', '|', '|' }
             };
 
@@ -200,7 +211,7 @@ class Program
                 { '|', '·', '·', 'C', '·', '·', '·', 'T', '·', '|' },
                 { '|', '·', '·', '·', '·', '·', '·', '·', '·', '|' },
                 { '|', '·', '·', 'E', '·', '·', '·', '·', '·', '|' },
-                { '|', '·', '·', '·', '·', 'S', '·', '·', '·', '|' },
+                { '|', '·', '·', '·', '·', 'S', '·', '·', 'B', '|' },
                 { '|', '|', '|', '|', '|', '|', '|', '|', '|', '|' }
             };
 
@@ -307,14 +318,21 @@ class Program
         public string Tipo { get; }
         public int Vida { get; private set; }
 
+        // Identidad propia de cada enemigo orgánico (VENENO, FUEGO, LIQUIDO):
+        // decide qué efecto aplica Combate durante el combate animado, a partir
+        // de la segunda vez que el cadete defiende. "" para cualquier enemigo
+        // sin efecto especial todavía.
+        public string Efecto { get; }
+
         public bool Derrotado => Vida <= 0;
 
-        public Enemigo(int fila, int columna, string tipo, int vidaInicial)
+        public Enemigo(int fila, int columna, string tipo, int vidaInicial, string efecto = "")
         {
             Fila = fila;
             Columna = columna;
             Tipo = tipo;
             Vida = vidaInicial;
+            Efecto = efecto;
         }
 
         // Reduce la vida del enemigo sin dejar que baje de 0.
@@ -341,11 +359,22 @@ class Program
         public int Estabilidad { get; private set; }
         public int Vida { get; private set; }
         public int Poder { get; private set; }
-        public string Posicion { get; private set; }
         public string Realidad { get; private set; }
         public int RecursosRecolectados { get; private set; }
         public bool CapacidadActiva { get; private set; }
         public int TurnosCapacidadActiva { get; private set; }
+
+        // Experiencia del sistema de misiones. A diferencia de Energia/Estabilidad/
+        // Poder, no tiene techo: cada misión suma 50 y no hay motivo para limitarla.
+        public int Experiencia { get; private set; }
+
+        // Cada 100 XP el cadete sube un nivel. Es una property calculada: no se
+        // guarda, así que nunca puede desincronizarse de Experiencia.
+        public const int ExperienciaPorNivel = 100;
+        public int Nivel
+        {
+            get { return (Experiencia / ExperienciaPorNivel) + 1; }
+        }
 
         public Cadete(string nombre, int energia, int estabilidad, int vida, int poder, string realidad)
         {
@@ -355,10 +384,16 @@ class Program
             Vida = vida;
             Poder = poder;
             Realidad = realidad;
-            Posicion = "Base";
             RecursosRecolectados = 0;
             CapacidadActiva = false;
             TurnosCapacidadActiva = 0;
+            Experiencia = 0;
+        }
+
+        // Aumenta la experiencia del cadete (recompensa de misión completada).
+        public void GanarExperiencia(int cantidad)
+        {
+            Experiencia += cantidad;
         }
 
         // Reduce la energía del cadete sin dejar que baje de 0.
@@ -438,11 +473,6 @@ class Program
             Console.WriteLine(Nombre + " ataca causando " + danio + " de daño.");
         }
 
-        public void ActualizarPosicion(string nuevaPosicion)
-        {
-            Posicion = nuevaPosicion;
-        }
-
         // Suma un recurso recolectado (recurso del mapa o recompensa de enemigo derrotado).
         public void RecolectarRecurso()
         {
@@ -488,10 +518,25 @@ class Program
     class Combate
     {
         // Reglas actuales del combate :
-        public const int DañoAtaqueJugador = 15;
+        public const int DañoAtaqueJugador = 12;
         public const int DañoEnemigoMinimo = 8;
-        public const int DañoEnemigoMaximo = 16; // exclusivo: rng.Next(8, 16) como antes
+        public const int DañoEnemigoMaximo = 16; // exclusivo: rng.Next(8, 16) como antes (solo combate clásico)
         public const int PoderPorEnemigoDerrotado = 20;
+        public const int DañoPorHuir = 10;
+
+        // ----- Efectos de los enemigos orgánicos (combate animado) -----
+        // Daño fijo del enemigo (en vez del rango aleatorio de arriba, que
+        // sigue usando el combate clásico). A partir de la segunda vez que el
+        // cadete defiende, cada enemigo suma su propio efecto:
+        //   LIQUIDO (6,5): reduce el ataque del cadete.
+        //   FUEGO   (4,8): golpea más fuerte.
+        //   VENENO  (2,3): daño base normal, pero sigue quitando vida cada
+        //                  turno y reduce un poco el ataque del cadete.
+        public const int DañoEnemigoOrganico = 10;
+        const double ReduccionAtaquePorLiquido = 0.30;
+        const double BonoDanioPorFuego = 0.15;
+        const double ReduccionAtaquePorVeneno = 0.05;
+        const int DañoPorTurnoVeneno = 5;
 
         // Generador propio para el daño aleatorio del contraataque. El "rng" de
         // Program se usa para otras cosas (p. ej. sectores de anomalías) y no es
@@ -500,6 +545,11 @@ class Program
 
         public Cadete Jugador { get; }
         public Enemigo EnemigoActual { get; }
+
+        // Se activa en cuanto el cadete defiende por primera vez en el combate
+        // animado: el primer ataque y la primera defensa son siempre el valor
+        // base, sin ningún efecto todavía.
+        bool efectosOrganicosActivos = false;
 
         public Combate(Cadete jugador, Enemigo enemigo)
         {
@@ -513,7 +563,10 @@ class Program
         // "mostrarMensaje" es false en el combate animado: Cadete.Atacar solo imprime
         // una línea de texto y ese texto rompería la pantalla animada. Por defecto
         // (true) el combate clásico se comporta exactamente como antes.
-        public bool Atacar(int daño, bool mostrarMensaje = true)
+        // "otorgarPoderInmediato" es false cuando este combate es contra el
+        // objetivo de la misión actual: el +20 Poder lo entrega el Terminal de
+        // la Base al completar la misión, no el combate (evita duplicarlo).
+        public bool Atacar(int daño, bool mostrarMensaje = true, bool otorgarPoderInmediato = true)
         {
             if (mostrarMensaje)
             {
@@ -524,7 +577,47 @@ class Program
 
             if (EnemigoActual.Derrotado)
             {
-                Jugador.GanarPoder(PoderPorEnemigoDerrotado);
+                if (otorgarPoderInmediato)
+                {
+                    Jugador.GanarPoder(PoderPorEnemigoDerrotado);
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        // Versión de Atacar() para el combate animado: aplica la reducción de
+        // LIQUIDO o VENENO si ya está activa, y devuelve en "dañoAplicado" el
+        // daño realmente hecho (para que Program lo muestre en el mensaje).
+        // No imprime texto (el combate animado arma su propio mensaje).
+        // Mismo criterio que Atacar(): "otorgarPoderInmediato" en false cuando
+        // el Terminal de la Base es quien va a entregar la recompensa.
+        public bool AtacarOrganico(int daño, out int dañoAplicado, bool otorgarPoderInmediato = true)
+        {
+            if (efectosOrganicosActivos)
+            {
+                if (EnemigoActual.Efecto == "LIQUIDO")
+                {
+                    daño = (int)(daño * (1 - ReduccionAtaquePorLiquido));
+                }
+                else if (EnemigoActual.Efecto == "VENENO")
+                {
+                    daño = (int)(daño * (1 - ReduccionAtaquePorVeneno));
+                }
+            }
+
+            dañoAplicado = daño;
+            EnemigoActual.RecibirDanio(daño);
+
+            if (EnemigoActual.Derrotado)
+            {
+                if (otorgarPoderInmediato)
+                {
+                    Jugador.GanarPoder(PoderPorEnemigoDerrotado);
+                }
+
                 return true;
             }
 
@@ -547,15 +640,89 @@ class Program
             return daño;
         }
 
-        // El jugador decide huir: el combate simplemente termina, sin penalización
-        // (el comportamiento actual del juego no contempla ninguna).
+        // Versión de Contraatacar() para el combate animado: daño fijo
+        // (DañoEnemigoOrganico) más el efecto propio del enemigo, activo desde
+        // esta misma llamada si ya hubo una defensa antes. Devuelve el daño
+        // total aplicado (incluye el veneno, si corresponde).
+        public int ContraatacarOrganico()
+        {
+            bool efectosActivosAhora = efectosOrganicosActivos;
+            int daño = DañoEnemigoOrganico;
+
+            if (efectosActivosAhora && EnemigoActual.Efecto == "FUEGO")
+            {
+                daño = (int)(daño * (1 + BonoDanioPorFuego));
+            }
+
+            Jugador.RecibirDanio(daño);
+
+            if (efectosActivosAhora && EnemigoActual.Efecto == "VENENO")
+            {
+                Jugador.RecibirDanio(DañoPorTurnoVeneno);
+                daño += DañoPorTurnoVeneno;
+            }
+
+            efectosOrganicosActivos = true;
+            return daño;
+        }
+
+        // El jugador decide huir: el combate termina, pero ahora tiene un costo
+        // fijo de vida (antes no había ninguna penalización).
         public bool Huir()
         {
+            Jugador.RecibirDanio(DañoPorHuir);
             return true;
         }
 
         // Indica si el jugador cayó en este combate.
         public bool JugadorDerrotado => Jugador.Vida <= 0;
+    }
+
+    // =====================================================
+    // CLASE MISION
+    // Representa una misión de NEXUS: a qué enemigo apunta (su Efecto, el
+    // mismo campo que ya tiene Enemigo), su consejo/advertencia, y el estado
+    // de avance. Es solo una "ficha de datos" con encapsulamiento (mismo
+    // estilo que Cadete): nada aquí sabe de combate, de la Base ni de
+    // consola — eso lo coordina Program.
+    // =====================================================
+    class Mision
+    {
+        public int ID { get; }
+        public string Nombre { get; }
+        public string Descripcion { get; }
+        public string TipoEnemigo { get; }   // coincide con Enemigo.Efecto
+        public string Consejo { get; }
+        public int RecompensaPoder { get; }
+        public int RecompensaExperiencia { get; }
+
+        // El enemigo ya fue derrotado, pero la recompensa todavía no se reclamó.
+        public bool ObjetivoCumplido { get; private set; }
+
+        // La recompensa ya fue entregada (evita reclamarla dos veces).
+        public bool Completada { get; private set; }
+
+        public Mision(int id, string nombre, string descripcion, string tipoEnemigo,
+            string consejo, int recompensaPoder, int recompensaExperiencia)
+        {
+            ID = id;
+            Nombre = nombre;
+            Descripcion = descripcion;
+            TipoEnemigo = tipoEnemigo;
+            Consejo = consejo;
+            RecompensaPoder = recompensaPoder;
+            RecompensaExperiencia = recompensaExperiencia;
+        }
+
+        public void MarcarObjetivoCumplido()
+        {
+            ObjetivoCumplido = true;
+        }
+
+        public void MarcarCompletada()
+        {
+            Completada = true;
+        }
     }
 
     // =====================================================
@@ -584,9 +751,9 @@ class Program
             // Enemigos iniciales de GENESIS. Antes se creaban una sola vez desde
             // Program, protegidos por un flag en EstadoJuego; ahora nacen junto
             // con la exploración (mismo comportamiento, sin necesitar el flag).
-            Enemigos.Add(new Enemigo(2, 3, "ORGANICO", Enemigo.VidaMaxima));
-            Enemigos.Add(new Enemigo(4, 8, "ORGANICO", Enemigo.VidaMaxima));
-            Enemigos.Add(new Enemigo(6, 5, "ORGANICO", Enemigo.VidaMaxima));
+            Enemigos.Add(new Enemigo(2, 3, "ORGANICO", Enemigo.VidaMaxima, "VENENO"));
+            Enemigos.Add(new Enemigo(4, 8, "ORGANICO", Enemigo.VidaMaxima, "FUEGO"));
+            Enemigos.Add(new Enemigo(6, 5, "ORGANICO", Enemigo.VidaMaxima, "LIQUIDO"));
         }
 
         // Registra el avance de un paso válido dentro de GENESIS.
@@ -915,8 +1082,8 @@ class Program
     class AnimacionVictoria
     {
         public const int AnchoPixeles = 50;
-        public const int AltoPixeles = 75;
-        public const int FilasTexto = (AltoPixeles + 1) / 2;   // 75 px -> 38 filas de texto
+        public const int AltoPixeles = 67;
+        public const int FilasTexto = (AltoPixeles + 1) / 2;   // 67 px de texto
 
         const string Carpeta = "victoria";
         const string Prefijo = "cofre_victoria";
@@ -981,6 +1148,76 @@ class Program
     }
 
     // =====================================================
+    // CLASE ANIMACIONCONTROLES
+    // Carga las 12 imágenes del tutorial de controles (wasd_...N.png): una
+    // por cada tecla W/A/S/D/E (en pares, por eso el tutorial solo usa los
+    // índices 0,2,4,6,8) y dos más para el candado cerrado/abierto (índices
+    // 10 y 11). Igual que AnimacionVictoria, reutiliza BuscarCarpeta y
+    // ConvertirAAnsi de AnimacionCombate en vez de reimplementarlos.
+    // =====================================================
+    class AnimacionControles
+    {
+        public const int AnchoPixeles = 35;
+        public const int AltoPixeles = 33;
+        public const int FilasTexto = (AltoPixeles + 1) / 2;   // 33 px -> 17 filas de texto
+
+        const string Carpeta = "controles_wasd";
+        const string Prefijo = "wasd";   // nombre real de los archivos del .zip
+
+        readonly string[][] fotogramas;
+
+        AnimacionControles(string[][] fotogramas)
+        {
+            this.fotogramas = fotogramas;
+        }
+
+        public string[] ObtenerFotograma(int indice)
+        {
+            return fotogramas[indice];
+        }
+
+        // El tutorial de controles necesita exactamente los 12 fotogramas
+        // (5 teclas x2 + candado cerrado/abierto); si falta alguno, null.
+        public static AnimacionControles Cargar()
+        {
+            try
+            {
+                string carpeta = AnimacionCombate.BuscarCarpeta(Carpeta);
+
+                if (carpeta == null)
+                {
+                    return null;
+                }
+
+                List<string[]> lista = new List<string[]>();
+
+                for (int i = 1; ; i++)
+                {
+                    string ruta = Path.Combine(carpeta, Prefijo + i + ".png");
+
+                    if (!File.Exists(ruta))
+                    {
+                        break;
+                    }
+
+                    lista.Add(AnimacionCombate.ConvertirAAnsi(ruta, AnchoPixeles, AltoPixeles, FilasTexto));
+                }
+
+                if (lista.Count < 12)
+                {
+                    return null;
+                }
+
+                return new AnimacionControles(lista.ToArray());
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+    }
+
+    // =====================================================
     // CLASE INTERFAZNEXUS
     // Responsable exclusivamente de la presentación por consola:
     // pantallas, barras, mapas dibujados y textos narrativos que no
@@ -1026,22 +1263,21 @@ class Program
             Console.WriteLine("-------------------------------------------------------------------------------------");
 
             // --- Bloques lógicos de texto ---
-            string anomalia = estado.SistemaIris.AnomaliaLocalizada ? $"LOCALIZADA - {estado.SistemaIris.UbicacionAnomalia}" : "NO LOCALIZADA";
-            string iris = estado.SistemaIris.Bloqueada ? $"BLOQUEADA ({estado.SistemaIris.TurnosBloqueo} T)" : "ACTIVA";
-            string capacidad = estado.MiCadete.CapacidadActiva ? $"ACTIVA ({estado.MiCadete.TurnosCapacidadActiva} T)" : "INACTIVA";
+            string textoMision = (estado.MisionActual != null)
+                ? estado.MisionActual.Nombre + (estado.MisionActual.ObjetivoCumplido ? " (completar en Terminal)" : "")
+                : "Todas completadas";
 
             // --- SECCIÓN SUPERIOR: Barras (Izquierda) e Info de Sistema (Derecha) ---
-            // El menú principal SOLO muestra Energía y Estabilidad.
-            // Vida y Poder se muestran únicamente en la Opción 2 (Capacidades/Equipamiento).
+            // El menú principal muestra Energía, Estabilidad, Experiencia y la
+            // misión actual. Vida y Poder se muestran únicamente en la Opción 1
+            // (Capacidades/Equipamiento), tal como ya estaba.
             string barraEnergia = $"|| Energia:     [{MostrarBarra(estado.MiCadete.Energia)}] {estado.MiCadete.Energia}%";
             string barraEstabilidad = $"|| Estabilidad: [{MostrarBarra(estado.MiCadete.Estabilidad)}] {estado.MiCadete.Estabilidad}%";
 
             // lado a lado (Alineamos la columna izquierda a 45 caracteres)
             Console.WriteLine($"{barraEnergia,-45}   || [ SISTEMA ]");
-            Console.WriteLine($"{barraEstabilidad,-45} ||    > Clase     : {estado.TipoPersonaje}");
-            Console.WriteLine($"{"",-45} ||    > Anomalía  : {anomalia}");
-            Console.WriteLine($"{"",-45} ||    > Iris      : {iris}");
-            Console.WriteLine($"{"",-45} ||    > Capacidad : {capacidad}");
+            Console.WriteLine($"{barraEstabilidad,-45} ||    > ⭐ Nivel      : {estado.MiCadete.Nivel}");
+            Console.WriteLine($"{"",-45} ||    > Misión      : {textoMision}");
             Console.WriteLine(new string('-', 85)); // Línea divisoria horizontal
 
             // --- SECCIÓN INFERIOR: Operaciones Disponibles (Abajo) ---
@@ -1241,6 +1477,10 @@ class Program
             {
                 return "🚪 ";
             }
+            else if (simbolo == 'B')
+            {
+                return "🔒 ";
+            }
             else
             {
                 return "░ ";
@@ -1389,6 +1629,58 @@ class Program
             EscribirFila(FilaMensajeAnimado, mensaje, AnchoTextoAnimado);
         }
 
+        // Mensaje de ataque del combate animado, según la especialización del cadete.
+        // Solo es presentación: el daño ya lo calculó Combate.
+        public static string ObtenerMensajeAtaque(string tipoPersonaje, int dañoAplicado)
+        {
+            string nombreAtaque;
+
+            if (tipoPersonaje == "FISICO")
+            {
+                nombreAtaque = "💥 Golpe Dash";
+            }
+            else if (tipoPersonaje == "ARMAMENTO")
+            {
+                nombreAtaque = "⚔️ Corte Flash";
+            }
+            else if (tipoPersonaje == "MANA")
+            {
+                nombreAtaque = "🔮 Proyectil de Mana";
+            }
+            else if (tipoPersonaje == "HERRAMIENTAS")
+            {
+                nombreAtaque = "⚡ Sobrecarga";
+            }
+            else
+            {
+                nombreAtaque = "🗡️ Ataque";
+            }
+
+            return nombreAtaque + ": el enemigo pierde " + dañoAplicado + " de vida.";
+        }
+
+        // Cuadro de confirmación de las interacciones de la Base (cama, terminal, puertas).
+        // Solo dibuja; la lectura de E / X la hace Program.ConfirmarInteraccion.
+        public static void MostrarCuadroInteraccion(string titulo, string pregunta)
+        {
+            const int ancho = 36;
+            string linea = new string('═', ancho);
+            int izquierda = Math.Max(0, (ancho - titulo.Length) / 2);
+            string tituloCentrado = (new string(' ', izquierda) + titulo).PadRight(ancho);
+
+            Console.WriteLine();
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("╔" + linea + "╗");
+            Console.WriteLine("║" + tituloCentrado + "║");
+            Console.WriteLine("╠" + linea + "╣");
+            Console.WriteLine("║ " + pregunta.PadRight(ancho - 1) + "║");
+            Console.WriteLine("║" + new string(' ', ancho) + "║");
+            Console.WriteLine("║ " + "[E] Sí".PadRight(ancho - 1) + "║");
+            Console.WriteLine("║ " + "[X] No".PadRight(ancho - 1) + "║");
+            Console.WriteLine("╚" + linea + "╝");
+            Console.ResetColor();
+        }
+
         // Dibuja un fotograma completo (FilasTexto líneas ANSI) dentro del marco.
         public static void DibujarEscenaCombateAnimado(string[] filasEscena)
         {
@@ -1430,6 +1722,28 @@ class Program
             Console.Write("\u001b[0m");
             Thread.Sleep(600);
             Console.Clear();
+        }
+
+        public const int AnchoMinimoControles = AnimacionControles.AnchoPixeles + 10;
+        public const int AltoMinimoControles = AnimacionControles.FilasTexto + 8;
+
+        // Dibuja un fotograma del tutorial de controles, centrado, con una
+        // línea de instrucción debajo (qué tecla presionar o qué se explica).
+        public static void MostrarFrameControles(string[] fotograma, string instruccion)
+        {
+            int columna = Math.Max(0, (Console.WindowWidth - AnimacionControles.AnchoPixeles) / 2);
+            const int filaBase = 3;
+
+            Console.Clear();
+            EscribirFila(0, "NEXUS // TUTORIAL DE CONTROLES", AnchoTextoAnimado);
+
+            for (int f = 0; f < fotograma.Length; f++)
+            {
+                Console.SetCursorPosition(columna, filaBase + f);
+                Console.Write(fotograma[f]);
+            }
+
+            EscribirFila(filaBase + fotograma.Length + 1, instruccion, AnchoTextoAnimado);
         }
 
         // Escribe una fila completa, rellenando con espacios para borrar lo anterior.
@@ -1745,33 +2059,6 @@ class Program
         }
     }
 
-    // NOTA (Fase 8): actualmente sin uso en el flujo del juego. Queda disponible
-    // como utilidad genérica de lectura numérica validada.
-    static int LeerEntero(string prompt, int minimo, int maximo, string mensajeFueraDeRango)
-    {
-        while (true)
-        {
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.Write(prompt);
-            Console.ResetColor();
-
-            bool esValido = int.TryParse(Console.ReadLine(), out int valor);
-
-            if (!esValido)
-            {
-                Console.WriteLine("Error: Debe ingresar un numero.");
-            }
-            else if (valor < minimo || valor > maximo)
-            {
-                Console.WriteLine(mensajeFueraDeRango);
-            }
-            else
-            {
-                return valor;
-            }
-        }
-    }
-
     // =====================================================
     // SECCIÓN: SELECCIÓN DE CADETE
     // Main llama a SeleccionarPersonaje antes de crear el Cadete.
@@ -2019,242 +2306,11 @@ class Program
         }
     }
 
-    // ===== NUEVO: Punto 3 - Un solo despachador según estado.TipoPersonaje =====
-    // Esto evita crear 4 programas distintos: usamos if / else if para decidir
-    // qué método ejecutar, dependiendo de la clase que eligió el cadete.
     // =====================================================
-    // SECCIÓN: SISTEMA DE CLASES Y CAPACIDADES/EQUIPAMIENTO
-    // Acción especial de cada clase de Cadete, el menú de Sistemas de
-    // Acción y la pantalla de Capacidades/Equipamiento (activación de la
+    // SECCIÓN: CAPACIDADES / EQUIPAMIENTO
+    // Pantalla de Capacidades/Equipamiento (activación de la
     // habilidad especial de Poder).
     // =====================================================
-    static void AccionEspecialDeClase(EstadoJuego estado)
-    {
-        if (estado.TipoPersonaje == "FISICO")
-        {
-            Console.WriteLine();
-            Console.WriteLine("=== CAPACIDADES FISICAS ===");
-            AtaqueFisico(estado);
-        }
-        else if (estado.TipoPersonaje == "ARMAMENTO")
-        {
-            Console.WriteLine();
-            Console.WriteLine("=== ARSENAL ===");
-            AbrirArsenal(estado);
-        }
-        else if (estado.TipoPersonaje == "MANA")
-        {
-            Console.WriteLine();
-            Console.WriteLine("=== HABILIDADES DE MANA ===");
-            UsarHabilidadDeMana(estado);
-        }
-        else if (estado.TipoPersonaje == "HERRAMIENTAS")
-        {
-            Console.WriteLine();
-            Console.WriteLine("=== HERRAMIENTAS ===");
-            EscaneoAvanzado(estado);
-        }
-    }
-
-    // ----- FÍSICO: ataque físico simple, consume poca energía -----
-    static void AtaqueFisico(EstadoJuego estado)
-    {
-        // Si la capacidad especial esta activa, el ataque cuesta la mitad.
-        int costoReal = estado.MiCadete.CapacidadActiva ? CostoAtaqueFisico / 2 : CostoAtaqueFisico;
-
-        if (estado.MiCadete.Energia < costoReal)
-        {
-            Console.WriteLine();
-            Console.WriteLine("NEXUS: Energia insuficiente para el ataque fisico.");
-            return;
-        }
-
-        estado.MiCadete.ConsumirEnergia(costoReal);
-
-        Console.WriteLine();
-        Console.WriteLine("NEXUS: Ejecutando ataque fisico...");
-        Thread.Sleep(300);
-        Console.WriteLine("CADETE: Impacto directo.");
-
-        // Ventaja de FISICO: recupera un poco de estabilidad al golpear.
-        estado.MiCadete.RecuperarEstabilidad(3);
-        Console.WriteLine("NEXUS: Estabilidad +3 (resistencia fisica).");
-    }
-
-    // ----- ARMAS: submenú con ataque básico y ataque fuerte -----
-    static void AbrirArsenal(EstadoJuego estado)
-    {
-        if (!estado.TieneArma)
-        {
-            Console.WriteLine();
-            Console.WriteLine("NEXUS: No hay ningun arma equipada.");
-            return;
-        }
-
-        Console.WriteLine();
-        Console.WriteLine("╔══════════════════════════════════════════╗");
-        Console.WriteLine("║              ARSENAL                     ║");
-        Console.WriteLine("╠══════════════════════════════════════════╣");
-        Console.WriteLine("║ [1] Ataque basico   (-" + CostoAtaqueFisico + " energia)     ║");
-        Console.WriteLine("║ [2] Ataque fuerte   (-" + CostoAtaqueFuerte + " energia)     ║");
-        Console.WriteLine("║ [3] Cancelar                             ║");
-        Console.WriteLine("╚══════════════════════════════════════════╝");
-        Console.Write("Seleccione un ataque: ");
-
-        string opcion = Console.ReadLine();
-
-        // Si la capacidad especial esta activa, ambos ataques cuestan menos.
-        int costoBasicoReal = estado.MiCadete.CapacidadActiva ? CostoAtaqueFisico / 2 : CostoAtaqueFisico;
-        int costoFuerteReal = estado.MiCadete.CapacidadActiva ? CostoAtaqueFuerte / 2 : CostoAtaqueFuerte;
-
-        if (opcion == "1")
-        {
-            if (estado.MiCadete.Energia < costoBasicoReal)
-            {
-                Console.WriteLine("NEXUS: Energia insuficiente.");
-                return;
-            }
-
-            estado.MiCadete.ConsumirEnergia(costoBasicoReal);
-            Console.WriteLine("NEXUS: Ataque basico ejecutado.");
-        }
-        else if (opcion == "2")
-        {
-            if (estado.MiCadete.Energia < costoFuerteReal)
-            {
-                Console.WriteLine("NEXUS: Energia insuficiente para un ataque fuerte.");
-                return;
-            }
-
-            estado.MiCadete.ConsumirEnergia(costoFuerteReal);
-            Console.WriteLine("NEXUS: ¡Ataque fuerte ejecutado!");
-        }
-        else
-        {
-            Console.WriteLine("NEXUS: Arsenal cerrado.");
-        }
-    }
-
-    // ----- MANA: habilidad especial que también interfiere a IRIS -----
-    static void UsarHabilidadDeMana(EstadoJuego estado)
-    {
-        if (estado.MiCadete.Energia < CostoHabilidadMana)
-        {
-            Console.WriteLine();
-            Console.WriteLine("NEXUS: Energia insuficiente para canalizar mana.");
-            return;
-        }
-
-        estado.MiCadete.ConsumirEnergia(CostoHabilidadMana);
-
-        Console.WriteLine();
-        Console.WriteLine("NEXUS: Canalizando energia de mana...");
-        Thread.Sleep(400);
-        Console.WriteLine("CADETE: La señal de IRIS se distorsiona brevemente.");
-
-        // Ventaja de MANA: puede interferir a IRIS si no esta ya bloqueada.
-        // Con la capacidad especial activa, la interferencia dura mas turnos.
-        int turnosInterferencia = estado.MiCadete.CapacidadActiva ? 2 : 1;
-
-        if (estado.SistemaIris.Interferir(turnosInterferencia))
-        {
-            Console.WriteLine("NEXUS: IRIS ha sido interferida temporalmente.");
-        }
-    }
-
-    // ----- HERRAMIENTAS: escaneo de información sin gastar energía -----
-    static void EscaneoAvanzado(EstadoJuego estado)
-    {
-        Console.WriteLine();
-        Console.WriteLine("NEXUS: Iniciando escaneo avanzado (especialidad HERRAMIENTAS)...");
-        Thread.Sleep(400);
-
-        Console.WriteLine("NEXUS: Energia restante: " + estado.MiCadete.Energia + "%");
-        Console.WriteLine("NEXUS: Estabilidad restante: " + estado.MiCadete.Estabilidad + "%");
-
-        if (estado.SistemaIris.Bloqueada)
-        {
-            Console.WriteLine("NEXUS: Bloqueo IRIS: " + estado.SistemaIris.TurnosBloqueo + " turnos");
-        }
-        else
-        {
-            Console.WriteLine("NEXUS: Bloqueo IRIS: sin bloqueo");
-        }
-
-        if (estado.SistemaIris.AnomaliaLocalizada)
-        {
-            Console.WriteLine("NEXUS: Ultima anomalia registrada en " + estado.SistemaIris.UbicacionAnomalia + ".");
-        }
-        else if (estado.MiCadete.CapacidadActiva)
-        {
-            // Ventaja de la capacidad especial: revela una anomalia automaticamente.
-            string[] sectores = { "Sector Delta", "Zona de Ruinas", "Corredor Omega", "Zona de interferencia" };
-            estado.SistemaIris.RegistrarAnomalia(sectores[rng.Next(sectores.Length)]);
-            Console.WriteLine("NEXUS: Escaneo total activo. Anomalia revelada en " + estado.SistemaIris.UbicacionAnomalia + ".");
-        }
-        else
-        {
-            Console.WriteLine("NEXUS: No hay anomalias registradas por el momento.");
-        }
-    }
-
-    // ===== NUEVO: Punto 2 - Menú unificado de Capacidades y Equipamiento =====
-
-    static void AbrirSistemasDeAccion(EstadoJuego estado)
-    {
-        Console.Clear();
-
-        Console.ForegroundColor = ConsoleColor.DarkCyan;
-
-        Console.WriteLine("╔════════════════════════════════════════════╗");
-        Console.WriteLine("║          NEXUS // SISTEMAS DE ACCIÓN       ║");
-        Console.WriteLine("╠════════════════════════════════════════════╣");
-        Console.WriteLine("║ [1] " + ObtenerEtiquetaAccionEspecial(estado.TipoPersonaje));
-        Console.WriteLine("║ [0] ↩ Regresar                             ║");
-        Console.WriteLine("╚════════════════════════════════════════════╝");
-
-        Console.ResetColor();
-
-        Console.Write("Seleccione una acción: ");
-        string opcion = Console.ReadLine();
-        if (opcion == "1")
-        {
-            AccionEspecialDeClase(estado);
-            Thread.Sleep(1200);
-            return;
-        }
-        if (opcion == "0")
-        {
-            return;
-        }
-
-        Console.WriteLine();
-        Console.WriteLine("⚠️ Sistema seleccionado.");
-        Console.WriteLine("NEXUS: Esta función será integrada próximamente.");
-        Thread.Sleep(1200);
-    }
-
-    // ----- Etiqueta del menú de "Sistemas de acción", según la clase -----
-    static string ObtenerEtiquetaAccionEspecial(string tipoPersonaje)
-    {
-        if (tipoPersonaje == "FISICO")
-        {
-            return "👊 Ataque físico                      ║";
-        }
-        else if (tipoPersonaje == "ARMAMENTO")
-        {
-            return "🔫 Arsenal                             ║";
-        }
-        else if (tipoPersonaje == "MANA")
-        {
-            return "🔮 Habilidad de mana                   ║";
-        }
-        else
-        {
-            return "🖥️ Escaneo avanzado                    ║";
-        }
-    }
-
     // ===== NUEVO: Punto 7 - Pantalla de Capacidades (solo Vida y Poder) =====
     // El menú principal (InterfazNexus.MostrarPanelEstado) ya muestra Energía/Estabilidad.
     // Esta pantalla es la única que muestra Vida y Poder, y desde aquí se
@@ -2350,6 +2406,62 @@ class Program
     // =====================================================
     // SECCIÓN: MANUAL DE USO
     // =====================================================
+
+    // Tutorial interactivo de controles: W/A/S/D/E solo avanzan cuando el
+    // jugador presiona exactamente esa tecla (refuerza el control real);
+    // el candado cerrado/abierto es solo explicativo, así que avanza solo.
+    // Si faltan las imágenes o la consola es muy chica, cae al manual de
+    // texto de siempre (MostrarTextoManual), que no se tocó.
+    static void MostrarManualControles()
+    {
+        if (!PrepararConsolaParaAnimacion(InterfazNexus.AnchoMinimoControles, InterfazNexus.AltoMinimoControles))
+        {
+            InterfazNexus.MostrarTextoManual();
+            return;
+        }
+
+        AnimacionControles animacion = AnimacionControles.Cargar();
+
+        if (animacion == null)
+        {
+            InterfazNexus.MostrarTextoManual();
+            return;
+        }
+
+        EsperarTeclaDeControl(animacion, 0, ConsoleKey.W, "Presiona [W] para moverte hacia arriba.");
+        EsperarTeclaDeControl(animacion, 2, ConsoleKey.A, "Presiona [A] para moverte hacia la izquierda.");
+        EsperarTeclaDeControl(animacion, 4, ConsoleKey.S, "Presiona [S] para moverte hacia abajo.");
+        EsperarTeclaDeControl(animacion, 6, ConsoleKey.D, "Presiona [D] para moverte hacia la derecha.");
+        EsperarTeclaDeControl(animacion, 8, ConsoleKey.E, "Presiona [E] para interactuar (terminal, cama, objetos).");
+
+        InterfazNexus.MostrarFrameControles(animacion.ObtenerFotograma(10), "Algunas zonas aparecen bloqueadas...");
+        Thread.Sleep(1800);
+        InterfazNexus.MostrarFrameControles(animacion.ObtenerFotograma(11), "...hasta que interactuas con ellas y quedan abiertas.");
+        Thread.Sleep(1800);
+
+        Console.WriteLine();
+        Console.WriteLine();
+        Console.WriteLine("Presione ENTER para regresar al menu...");
+        Console.ReadLine();
+    }
+
+    // Dibuja el fotograma de una tecla y espera a que el jugador presione
+    // exactamente esa tecla antes de continuar con la siguiente.
+    static void EsperarTeclaDeControl(AnimacionControles animacion, int indiceFotograma, ConsoleKey teclaEsperada, string instruccion)
+    {
+        InterfazNexus.MostrarFrameControles(animacion.ObtenerFotograma(indiceFotograma), instruccion);
+
+        while (true)
+        {
+            ConsoleKeyInfo info = Console.ReadKey(true);
+
+            if (info.Key == teclaEsperada)
+            {
+                return;
+            }
+        }
+    }
+
     static void MostrarManualDeUso(EstadoJuego estado)
     {
         while (true)
@@ -2370,7 +2482,7 @@ class Program
 
             if (opcion == "1")
             {
-                InterfazNexus.MostrarTextoManual();
+                MostrarManualControles();
             }
             else if (opcion == "2")
             {
@@ -2455,7 +2567,7 @@ class Program
             InterfazNexus.MostrarMapaBase(baseOperativa);
 
             Console.WriteLine();
-            Console.WriteLine("🛏 Cama    🖥 Terminal    📦 Equipamiento    🚪 Salida");
+            Console.WriteLine("🛏 Cama    🖥 Terminal    📦 Equipamiento    🚪 Salida    🔒 Bloqueada");
             Console.WriteLine();
             Console.WriteLine("[NEXUS] CONTROL DE MOVIMIENTO");
             Console.WriteLine("[W] Arriba  [A] Izquierda  [S] Abajo  [D] Derecha");
@@ -2507,7 +2619,10 @@ class Program
             }
             else if (casilla == 'T')
             {
-                InteractuarTerminalBase(estado);
+                if (ConfirmarInteraccion("🖥 TERMINAL NEXUS", "¿Deseas acceder al terminal?"))
+                {
+                    InteractuarTerminalBase(estado);
+                }
             }
             else if (casilla == 'E')
             {
@@ -2515,65 +2630,201 @@ class Program
             }
             else if (casilla == 'S')
             {
-                Console.WriteLine();
-                Console.WriteLine("🚪 NEXUS: Ha llegado a la salida de la base.");
-                Console.Write("¿Desea iniciar la misión y abandonar la base? [S/N]: ");
-                string respuesta = (Console.ReadLine() ?? "").Trim().ToUpper();
-
-                if (respuesta == "S")
+                if (ConfirmarInteraccion("🚪 SALIDA", "¿Salir e iniciar la misión?"))
                 {
                     return true;
                 }
 
+                Console.WriteLine();
                 Console.WriteLine("NEXUS: Permaneciendo en la base.");
                 Thread.Sleep(800);
+            }
+            else if (casilla == 'B')
+            {
+                if (ConfirmarInteraccion("🔒 PUERTA BLOQUEADA", "¿Deseas interactuar?"))
+                {
+                    Console.WriteLine();
+                    Console.WriteLine("🔒 PUERTA BLOQUEADA");
+                    Console.WriteLine();
+                    Console.WriteLine("NEXUS:");
+                    Console.WriteLine("Acceso restringido.");
+                    Console.WriteLine("Esta sección todavía no está disponible.");
+                    Console.WriteLine();
+                    Console.WriteLine("Presione ENTER para continuar...");
+                    Console.ReadLine();
+                }
             }
         }
     }
 
-    static void InteractuarCama(EstadoJuego estado)
+    // Muestra el cuadro de confirmación y espera exactamente E (sí) o X (no).
+    // Cualquier otra tecla se ignora. Devuelve true si el jugador presionó E.
+    static bool ConfirmarInteraccion(string titulo, string pregunta)
     {
-        Console.WriteLine();
-        Console.WriteLine("🛏 NEXUS: Esta es su litera de descanso.");
-        Console.Write("¿Desea descansar para recuperar Energía y Estabilidad? [S/N]: ");
-        string respuesta = (Console.ReadLine() ?? "").Trim().ToUpper();
+        InterfazNexus.MostrarCuadroInteraccion(titulo, pregunta);
 
-        if (respuesta == "S")
+        while (true)
         {
-            estado.MiCadete.RecuperarEnergia(100);
-            estado.MiCadete.RecuperarEstabilidad(100);
-            Console.WriteLine("NEXUS: Energía y Estabilidad restauradas al 100%.");
-            Thread.Sleep(1000);
+            ConsoleKey tecla = Console.ReadKey(true).Key;
+
+            if (tecla == ConsoleKey.E)
+            {
+                return true;
+            }
+
+            if (tecla == ConsoleKey.X)
+            {
+                return false;
+            }
         }
     }
 
+    // La cama recupera únicamente Vida (hasta el máximo); no toca Energía ni Estabilidad.
+    static void InteractuarCama(EstadoJuego estado)
+    {
+        if (!ConfirmarInteraccion("🛏 CAMA NEXUS", "¿Deseas descansar?"))
+        {
+            return;
+        }
+
+        estado.MiCadete.RecuperarVida(100);
+
+        Console.WriteLine();
+        Console.WriteLine("NEXUS: Vida restaurada al máximo (" + estado.MiCadete.Vida + "%).");
+        Thread.Sleep(1000);
+    }
+
+    // Centro de misiones del Terminal: muestra las 3 a la vez (bloqueada /
+    // actual / completada). Elegir una muestra su descripción y su consejo
+    // sobre el enemigo; si es la actual y ya se cumplió el objetivo, ofrece
+    // reclamar la recompensa (una sola vez, ver Mision.Completada).
     static void InteractuarTerminalBase(EstadoJuego estado)
     {
-        Console.WriteLine();
-        Console.WriteLine("🖥 NEXUS: Terminal de mando central.");
-
-        if (!estado.BienvenidaNexusMostrada)
+        while (true)
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            InterfazNexus.MostrarTexto("NEXUS: Bienvenido, Cadete " + estado.Nombre + ".", true, 200);
-            InterfazNexus.MostrarTexto("NEXUS: La conexión con NEXUS ha sido establecida.", true, 200);
-            InterfazNexus.MostrarTexto("NEXUS: Tu inmersión ha sido autorizada.", true, 200);
-            InterfazNexus.MostrarTexto("NEXUS: Realidad asignada: " + estado.Realidad + ".", true, 200);
-            InterfazNexus.MostrarTexto("NEXUS: Los sistemas están sincronizados.", true, 200);
-            InterfazNexus.MostrarTexto("NEXUS: Yo soy NEXUS (>‿<)✌️ y te guiaré durante esta misión.", true, 200);
-            InterfazNexus.MostrarTexto("NEXUS: Los archivos históricos de IRIS están disponibles.", true, 200);
-            InterfazNexus.MostrarTexto("NEXUS: puedes consultarlos desde el menú cuando lo desees.", true, 200);
+            Console.Clear();
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("╔════════════════════════════════════════════╗");
+            Console.WriteLine("║        NEXUS // TERMINAL DE MISIONES        ║");
+            Console.WriteLine("╠════════════════════════════════════════════╣");
             Console.ResetColor();
 
-            estado.BienvenidaNexusMostrada = true;
+            for (int i = 0; i < estado.Misiones.Count; i++)
+            {
+                Console.WriteLine("║ [" + (i + 1) + "] " + estado.Misiones[i].Nombre + " — " + ObtenerEstadoDeMision(estado, i));
+            }
+
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("╠════════════════════════════════════════════╣");
+            Console.WriteLine("║ [0] Salir del terminal");
+            Console.WriteLine("╚════════════════════════════════════════════╝");
+            Console.ResetColor();
+
+            Console.Write("Seleccione una misión: ");
+            string opcion = (Console.ReadLine() ?? "").Trim();
+
+            if (opcion == "0")
+            {
+                return;
+            }
+
+            int indice;
+
+            if (!int.TryParse(opcion, out indice) || indice < 1 || indice > estado.Misiones.Count)
+            {
+                Console.WriteLine();
+                Console.WriteLine("NEXUS: Selección no reconocida.");
+                Thread.Sleep(1000);
+                continue;
+            }
+
+            MostrarDetalleDeMision(estado, indice - 1);
+        }
+    }
+
+    // Etiqueta corta de estado para la lista de misiones del Terminal.
+    static string ObtenerEstadoDeMision(EstadoJuego estado, int indice)
+    {
+        Mision mision = estado.Misiones[indice];
+
+        if (mision.Completada)
+        {
+            return "✅ COMPLETADA";
+        }
+
+        if (indice != estado.MisionActualIndice)
+        {
+            return "🔒 BLOQUEADA";
+        }
+
+        return mision.ObjetivoCumplido ? "🎯 LISTA PARA RECLAMAR" : "🎯 ACTUAL";
+    }
+
+    // Pantalla de detalle de una misión: descripción, consejo sobre el
+    // enemigo y, si corresponde, la opción de reclamar la recompensa.
+    static void MostrarDetalleDeMision(EstadoJuego estado, int indice)
+    {
+        Mision mision = estado.Misiones[indice];
+        bool esActual = (indice == estado.MisionActualIndice);
+
+        Console.Clear();
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("╔════════════════════════════════════════════╗");
+        Console.WriteLine("║ " + mision.Nombre);
+        Console.WriteLine("╠════════════════════════════════════════════╣");
+        Console.ResetColor();
+        Console.WriteLine(mision.Descripcion);
+        Console.WriteLine();
+        Console.WriteLine("⚠️ " + mision.Consejo);
+        Console.WriteLine();
+
+        if (mision.Completada)
+        {
+            Console.WriteLine("✅ Misión completada.");
+        }
+        else if (!esActual)
+        {
+            Console.WriteLine("🔒 Bloqueada: completa primero la misión anterior.");
+        }
+        else if (!mision.ObjetivoCumplido)
+        {
+            Console.WriteLine("🎯 Derrota al enemigo " + mision.TipoEnemigo + " y regresa a la Base.");
         }
         else
         {
-            Console.WriteLine("NEXUS: Explorador " + estado.Nombre + ", bienvenido de vuelta.");
-            Console.WriteLine("NEXUS: Realidad asignada: " + estado.Realidad);
+            Console.WriteLine("🔷 +" + mision.RecompensaPoder + " PODER");
+            Console.WriteLine("⭐ +" + mision.RecompensaExperiencia + " XP");
+            Console.WriteLine();
+            Console.Write("¿Reclamar recompensa? [S/N]: ");
+            string respuesta = (Console.ReadLine() ?? "").Trim().ToUpper();
+
+            if (respuesta == "S")
+            {
+                estado.MiCadete.GanarPoder(mision.RecompensaPoder);
+                estado.MiCadete.GanarExperiencia(mision.RecompensaExperiencia);
+                mision.MarcarCompletada();
+                estado.MisionActualIndice++;
+
+                Console.WriteLine();
+                Console.WriteLine("🏆 MISIÓN COMPLETADA");
+                Console.WriteLine("🔷 +" + mision.RecompensaPoder + " PODER");
+                Console.WriteLine("⭐ +" + mision.RecompensaExperiencia + " XP");
+                Console.WriteLine();
+
+                if (estado.MisionActual != null)
+                {
+                    Console.WriteLine("Nueva misión desbloqueada: " + estado.MisionActual.Nombre);
+                }
+                else
+                {
+                    Console.WriteLine("🏆 TODAS LAS MISIONES COMPLETADAS");
+                }
+            }
         }
 
-        Thread.Sleep(1500);
+        Console.WriteLine();
+        Console.WriteLine("Presione ENTER para regresar...");
+        Console.ReadLine();
     }
 
     static void InteractuarEquipamientoBase(EstadoJuego estado)
@@ -2820,12 +3071,23 @@ class Program
         Console.WriteLine("🗺️ La zona ha quedado despejada.");
 
         // ===== Punto 10: lógica centralizada de enemigo derrotado =====
+        bool esObjetivoDeMision = EsObjetivoDeMisionActual(estado, enemigo);
         estado.EnemigosGenesis.Remove(enemigo);
 
         Console.WriteLine();
-        Console.WriteLine("NEXUS: Fragmento de Poder obtenido.");
-        Console.WriteLine("NEXUS: Poder +" + Combate.PoderPorEnemigoDerrotado);
-        Console.WriteLine("NEXUS: Poder actual: " + estado.MiCadete.Poder + "/100");
+
+        if (esObjetivoDeMision)
+        {
+            estado.MisionActual.MarcarObjetivoCumplido();
+            Console.WriteLine("🎯 Objetivo de misión cumplido.");
+            Console.WriteLine("NEXUS: Regresa a la Base Operativa y usa el Terminal para completar la misión.");
+        }
+        else
+        {
+            Console.WriteLine("NEXUS: Fragmento de Poder obtenido.");
+            Console.WriteLine("NEXUS: Poder +" + Combate.PoderPorEnemigoDerrotado);
+            Console.WriteLine("NEXUS: Poder actual: " + estado.MiCadete.Poder + "/100");
+        }
 
         Thread.Sleep(1500);
 
@@ -2856,6 +3118,16 @@ class Program
 
         Thread.Sleep(1200);
         return false;
+    }
+
+    // El enemigo es el objetivo de la misión actual si su Efecto coincide con
+    // el TipoEnemigo de la misión vigente (y esa misión todavía no se reclamó).
+    // Lo usan tanto el combate (para no duplicar el Poder) como
+    // FinalizarPorVictoria (para decidir qué mensaje mostrar).
+    static bool EsObjetivoDeMisionActual(EstadoJuego estado, Enemigo enemigo)
+    {
+        Mision actual = estado.MisionActual;
+        return actual != null && !actual.Completada && enemigo.Efecto == actual.TipoEnemigo;
     }
 
     // Mensajes y desconexión cuando el cadete cae en combate (los usan el combate
@@ -2928,6 +3200,7 @@ class Program
         }
 
         Combate combate = new Combate(estado.MiCadete, enemigo);
+        bool esObjetivoDeMision = EsObjetivoDeMisionActual(estado, enemigo);
         bool victoria = false;
         bool derrota = false;
         bool huida = false;
@@ -2948,14 +3221,16 @@ class Program
 
                 if (accion == AnimacionCombate.Ataque)
                 {
-                    victoria = combate.Atacar(Combate.DañoAtaqueJugador, false);
-                    mensaje = "🗡️ Ataque con katana: el enemigo pierde " + Combate.DañoAtaqueJugador + " de vida.";
+                    int dañoAplicado;
+                    victoria = combate.AtacarOrganico(Combate.DañoAtaqueJugador, out dañoAplicado, !esObjetivoDeMision);
+                    mensaje = InterfazNexus.ObtenerMensajeAtaque(estado.TipoPersonaje, dañoAplicado);
                 }
                 else
                 {
-                    int dañoRecibido = combate.Contraatacar(true);
+                    int dañoRecibido = combate.ContraatacarOrganico();
                     derrota = combate.JugadorDerrotado;
-                    mensaje = "🛡️ Defensa: el cadete recibe " + dañoRecibido + " de daño.";
+                    mensaje = "🛡️ Defensa: el cadete recibe " + dañoRecibido + " de daño."
+                        + ObtenerNotaDeEfecto(enemigo);
                 }
 
                 InterfazNexus.MostrarHudCombateAnimado(estado, enemigo);
@@ -2963,7 +3238,7 @@ class Program
 
                 if (victoria || derrota)
                 {
-                    Thread.Sleep(1200);
+                    Thread.Sleep(900);
                     break;
                 }
 
@@ -3026,7 +3301,7 @@ class Program
             // 3. Se dibuja el fotograma actual y se avanza la secuencia.
             InterfazNexus.DibujarEscenaCombateAnimado(animacion.ObtenerFotograma());
             animacion.Avanzar();
-            Thread.Sleep(150);
+            Thread.Sleep(110);
         }
 
         Console.Write("\u001b[0m");
@@ -3044,11 +3319,30 @@ class Program
         {
             Console.WriteLine();
             Console.WriteLine("⏪ NEXUS: Huyendo de la zona.");
-            Thread.Sleep(1000);
             combate.Huir();
+            Console.WriteLine("💨 Huir cuesta " + Combate.DañoPorHuir + " de vida. Vida actual: " + estado.MiCadete.Vida);
+            Thread.Sleep(1200);
         }
 
         return true;
+    }
+
+    // Nota corta sobre el efecto del enemigo orgánico, para el mensaje de
+    // defensa del combate animado. No cambia ningún daño, solo explica el
+    // porqué (Combate ya hizo el cálculo real en ContraatacarOrganico).
+    static string ObtenerNotaDeEfecto(Enemigo enemigo)
+    {
+        if (enemigo.Efecto == "FUEGO")
+        {
+            return " 🔥 El fuego intensifica el golpe.";
+        }
+
+        if (enemigo.Efecto == "VENENO")
+        {
+            return " ☠ El veneno sigue drenando vida cada turno.";
+        }
+
+        return "";
     }
 
     static void IniciarCombate(EstadoJuego estado, Enemigo enemigo)
@@ -3061,6 +3355,7 @@ class Program
         }
 
         Combate combate = new Combate(estado.MiCadete, enemigo);
+        bool esObjetivoDeMision = EsObjetivoDeMisionActual(estado, enemigo);
 
         while (!enemigo.Derrotado && !combate.JugadorDerrotado)
         {
@@ -3090,7 +3385,7 @@ class Program
                 Thread.Sleep(1000);
 
                 Console.WriteLine("🗡️ Ataque con katana eléctrica realizado.");
-                bool enemigoDerrotado = combate.Atacar(Combate.DañoAtaqueJugador);
+                bool enemigoDerrotado = combate.Atacar(Combate.DañoAtaqueJugador, true, !esObjetivoDeMision);
 
                 Console.WriteLine("☠️ Vida restante del enemigo: " + enemigo.Vida);
 
@@ -3121,8 +3416,9 @@ class Program
             {
                 Console.WriteLine();
                 Console.WriteLine("⏪ NEXUS: Huyendo de la zona.");
-                Thread.Sleep(1000);
                 combate.Huir();
+                Console.WriteLine("💨 Huir cuesta " + Combate.DañoPorHuir + " de vida. Vida actual: " + estado.MiCadete.Vida);
+                Thread.Sleep(1200);
                 break;
             }
             else
