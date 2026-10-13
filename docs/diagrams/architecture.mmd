@@ -1,0 +1,54 @@
+%% Generated from the NEXUS_1 project architecture
+flowchart TD
+
+  subgraph group_entry["Game Entry"]
+    node_main["Game Entry<br/>[Program .cs]"]
+    node_cadet_selection["Cadet Selection<br/>[Program .cs]"]
+  end
+
+  subgraph group_mission["Mission Systems"]
+    node_mission_loop["Mission Loop<br/>[Program .cs]"]
+    node_multiversal_nexus["Multiversal Nexus<br/>[Program .cs]"]
+  end
+
+  subgraph group_world["Game World"]
+    node_genesis["Genesis Exploration<br/>[Program .cs]"]
+    node_combat["Combat<br/>[Program .cs]"]
+    node_base_operations["Base Operations<br/>[Program .cs]"]
+    node_iris["IRIS Anomalies<br/>[Program .cs]"]
+  end
+
+  subgraph group_interface["Console Interface"]
+    node_console_ui["Console Interface<br/>[Program .cs]"]
+  end
+
+  node_player(("Player"))
+
+  node_player -->|"enters details"| node_main
+  node_main -->|"calls"| node_cadet_selection
+  node_player -->|"selects operation"| node_mission_loop
+  node_mission_loop -->|"shows status"| node_console_ui
+  node_mission_loop -->|"dispatches"| node_multiversal_nexus
+
+  click node_main "https://github.com/kristoferlara/nexus_1/blob/master/Nexus_1/Program%20.cs"
+  click node_cadet_selection "https://github.com/kristoferlara/nexus_1/blob/master/Nexus_1/Program%20.cs"
+  click node_mission_loop "https://github.com/kristoferlara/nexus_1/blob/master/Nexus_1/Program%20.cs"
+  click node_multiversal_nexus "https://github.com/kristoferlara/nexus_1/blob/master/Nexus_1/Program%20.cs"
+  click node_genesis "https://github.com/kristoferlara/nexus_1/blob/master/Nexus_1/Program%20.cs"
+  click node_combat "https://github.com/kristoferlara/nexus_1/blob/master/Nexus_1/Program%20.cs"
+  click node_base_operations "https://github.com/kristoferlara/nexus_1/blob/master/Nexus_1/Program%20.cs"
+  click node_iris "https://github.com/kristoferlara/nexus_1/blob/master/Nexus_1/Program%20.cs"
+  click node_console_ui "https://github.com/kristoferlara/nexus_1/blob/master/Nexus_1/Program%20.cs"
+
+  classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
+  classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+  classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+  classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+  classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
+  classDef toneIndigo fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
+  classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
+  class node_main,node_cadet_selection toneBlue
+  class node_mission_loop,node_multiversal_nexus toneAmber
+  class node_genesis,node_combat,node_base_operations,node_iris toneMint
+  class node_console_ui toneRose
+  class node_player toneIndigo
