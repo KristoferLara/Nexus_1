@@ -15,7 +15,7 @@ Desde la carpeta que contiene `Nexus_1.slnx`:
 
 ```bash
 dotnet restore
-dotnet run --project Nexus_1/Nexus_1.csproj
+dotnet run --project "Nexus_1/Nexus_1.csproj"
 ```
 
 También puedes abrir `Nexus_1.slnx` en Visual Studio compatible con .NET 10 y ejecutar el proyecto `Nexus_1`.
@@ -42,3 +42,6 @@ El programa incluye rutas relativas para cargar animaciones y recursos visuales.
 
 - `Nexus_1/Program .cs`: lógica del juego, clases y punto de entrada.
 - `Nexus_1/Nexus_1.csproj`: configuración y dependencias del proyecto.
+- `docs/`: manual técnico y diagramas del sistema.
+
+Consulta el [índice de documentación](docs/README.md) para acceder al [manual técnico](docs/manual-tecnico.md) y al [diagrama de arquitectura](docs/diagrams/architecture.mmd).
