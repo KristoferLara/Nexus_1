@@ -18,7 +18,7 @@ class Program
     // exclusivamente a la lógica de combate (ver clase Combate).
 
     // ===== SISTEMA DE BOTIQUINES =====
-    const int CuracionBotiquin = 25;   // Punto 5: vida recuperada al usar un botiquín del mapa
+    static readonly Botiquin BotiquinMapa = new Botiquin("Botiquín del mapa", 25);
 
     static event Action<int> AnomaliaDetectada;
 
@@ -300,6 +300,28 @@ class Program
         {
             UbicacionAnomalia = ubicacion;
             AnomaliaLocalizada = true;
+        }
+    }
+
+    class Botiquin
+    {
+        public string Nombre { get; }
+        public int Curación { get; }
+
+        public Botiquin(string nombre, int curación)
+        {
+            if (string.IsNullOrWhiteSpace(nombre))
+            {
+                throw new ArgumentException("Nombre no nulo ni vacío.", nameof(nombre));
+            }
+
+            if (curación <= 0)
+            {
+                throw new ArgumentException("Curación mayor que cero.", nameof(curación));
+            }
+
+            Nombre = nombre;
+            Curación = curación;
         }
     }
 
@@ -770,7 +792,7 @@ class Program
 
         // Si hay un botiquín sin recoger en la posición actual, lo consume y cura al jugador.
         // Devuelve la vida realmente recuperada, o null si no había botiquín (o ya se usó).
-        public int? RecogerBotiquinEnPosicionActual(int curacion)
+        public int? RecogerBotiquinEnPosicionActual(Botiquin botiquin)
         {
             int fila = Mapa.FilaJugador;
             int columna = Mapa.ColumnaJugador;
@@ -784,7 +806,7 @@ class Program
             recursosObtenidos[fila, columna] = true;
 
             int vidaAntes = jugador.Vida;
-            jugador.RecuperarVida(curacion);
+            jugador.RecuperarVida(botiquin.Curación);
             int vidaRecuperada = jugador.Vida - vidaAntes;
 
             jugador.RecolectarRecurso();
@@ -2967,7 +2989,7 @@ class Program
     // se encarga de narrar el resultado.
     static void ComprobarBotiquin(EstadoJuego estado)
     {
-        int? vidaRecuperada = estado.Exploracion.RecogerBotiquinEnPosicionActual(CuracionBotiquin);
+        int? vidaRecuperada = estado.Exploracion.RecogerBotiquinEnPosicionActual(BotiquinMapa);
 
         if (vidaRecuperada == null)
         {
@@ -2976,7 +2998,7 @@ class Program
 
         Console.WriteLine();
         Console.WriteLine("🩹 BOTIQUÍN ENCONTRADO");
-        Console.WriteLine("NEXUS: Has utilizado un botiquín.");
+        Console.WriteLine("NEXUS: Has utilizado: " + BotiquinMapa.Nombre + ".");
         Console.WriteLine("NEXUS: Vida recuperada: +" + vidaRecuperada);
         Console.WriteLine("NEXUS: Vida actual: " + estado.MiCadete.Vida + "/100");
 
