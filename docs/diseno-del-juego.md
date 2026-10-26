@@ -14,7 +14,7 @@ La fantasía central es ser un cadete que se adentra en una realidad inestable y
 
 El ciclo conserva el orden de misiones H3: localizar y derrotar al objetivo, volver a la base y reclamar la recompensa en el terminal. Para que encaje con acción 2D, el combate deja de ser un menú por turnos y pasa a resolverse con movimiento, salto, ataque y colisiones.
 
-![Diagrama de ciclo principal](evidencias/ciclo-principal.mmd)
+Diagrama editable: [ciclo principal](evidencias/ciclo-principal.mmd).
 
 1. El jugador crea o selecciona un perfil local y carga una partida.
 2. En la Base Operativa consulta misión, equipo y estado del cadete.

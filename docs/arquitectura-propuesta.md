@@ -6,7 +6,7 @@ Transformar la experiencia de consola en una app gráfica de acción 2D sin dese
 
 ## Diagrama
 
-![Diagrama de arquitectura propuesta](evidencias/arquitectura-propuesta.mmd)
+Diagrama editable: [arquitectura propuesta](evidencias/arquitectura-propuesta.mmd).
 
 ## Capas y responsabilidades
 
