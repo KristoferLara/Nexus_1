@@ -1,0 +1,17 @@
+flowchart TD
+    A[Menú principal] --> B[Seleccionar perfil / cargar partida]
+    B --> C[Base Operativa]
+    C --> D[Elegir misión disponible]
+    D --> E[Explorar sector GENESIS]
+    E --> F{Explorar, recoger y combatir}
+    F -->|Colisión / encuentro| G[Resolver daño, botín o interacción]
+    G --> F
+    F -->|Llegar al objetivo| H[Enfrentar enemigo objetivo / jefe]
+    H --> I{Resultado}
+    I -->|Victoria| J[Regresar a Base]
+    I -->|Derrota| K[Reaparecer en punto seguro]
+    K --> C
+    J --> L[Entregar misión en terminal]
+    L --> M[XP + recursos + siguiente misión]
+    M --> N[Guardar progreso SQL]
+    N --> C

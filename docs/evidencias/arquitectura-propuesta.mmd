@@ -1,0 +1,33 @@
+flowchart LR
+    subgraph UI[Presentación · Nexus.WinForms]
+      A[Menú / formularios]
+      B[GameView · Paint + sprites]
+      C[InputController]
+      D[GameLoop · Timer]
+    end
+    subgraph CORE[Dominio · Nexus.GameCore]
+      E[GameSession]
+      F[Cadete / Enemigo / Item]
+      G[Level / Collider / Physics2D]
+      H[CombatService / MissionService]
+      I[ISaveRepository]
+    end
+    subgraph DATA[Datos · Nexus.Data.SqlServer]
+      J[PlayerRepository]
+      K[SaveRepository]
+      L[Microsoft.Data.SqlClient]
+    end
+    M[(SQL Server LocalDB / Express)]
+    A --> E
+    C --> E
+    D --> E
+    E --> F
+    E --> G
+    E --> H
+    B -. dibuja estado .-> E
+    E --> I
+    I -. implementa .- J
+    I -. implementa .- K
+    J --> L
+    K --> L
+    L --> M
