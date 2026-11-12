@@ -1,50 +1,45 @@
 # Análisis técnico
 
-## Hechos y alternativas
+## Base analizada
 
-Evidencia: proyecto C# `net10.0-windows`, WinForms, formulario fijo, reglas en `Modelos.cs` y gran parte de flujo/renderizado en `Form1.cs`. No se encontró persistencia, pruebas o SQL. Recomendaciones abajo son propuestas y no implementación.
+El código de referencia es la rama `feature/mi-codigo-csharp`, commit `8c4965ce75b6a33a3998a2f9df301f7f8c5116d4`, con proyecto .NET 10 de consola en `Nexus_1/Program .cs`. La rama contiene registro, selección de clase, estado del cadete, exploración, anomalías, dron/PEM y eventos IRIS. La carpeta `NEXUS_WF/` representa una aproximación gráfica de posible evolución y se conserva como referencia; no se utilizó para sustituir las reglas del programa base.
 
-| Área | Alternativas | Ventajas | Costes | Recomendación |
+## Alternativas
+
+| Área | Alternativas | Ventajas | Costes / riesgos | Recomendación |
 |---|---|---|---|---|
-| UI | WinForms / WPF / motor de juego | WinForms reutiliza prototipo; WPF facilita binding; Unity/Godot ofrecen escenas y animación | WinForms escala y se adapta menos; migrar UI cambia herramientas y consume tiempo | Mantener WinForms en el MVP; revaluar motor si se requiere multiplataforma/escenas complejas |
-| Lógica | Dejar en Form1 / extraer dominio | Extracción permite pruebas y reduce acoplamiento | Refactor debe preservar turnos y transiciones | Extraer primero combate y misión de las 1,192 líneas de Form1 |
-| Guardado | RAM / JSON / SQL Server | RAM simple; JSON local; SQL ofrece integridad y consultas | JSON requiere versionado; SQL requiere instancia/configuración | Por requisito, SQL Server tras estabilizar modelo |
-| Acceso SQL | ADO.NET / EF Core | ADO.NET explícito; EF Core ofrece mapping y migraciones | EF añade paquete/abstracción; SQL requiere operación | EF Core si modelo evoluciona; ADO.NET válido para primera vertical slice |
-| Contenido | Hardcode / JSON / tablas | Hardcode simple; JSON separa contenido; tablas editables | Desincronización o tooling adicional | Extraer catálogos versionados primero |
+| Presentación | Consola actual / WinForms de referencia / WPF o motor de juego | Consola ya soporta flujo narrativo; WinForms aporta una aproximación gráfica próxima; un motor resuelve escenas/input avanzados | Consola limita disposición y accesibilidad; UI alternativa puede divergir de reglas; migrar aumenta coste | Mantener consola como base de lógica y usar NEXUS_WF para explorar la experiencia gráfica; extraer dominio antes de unirlas |
+| Arquitectura | Mantener Program.cs / separar aplicación, dominio y UI | No cambio rápido / separación facilita pruebas y evolución | Refactor requiere preservar secuencia de juego | Extraer EstadoJuego y reglas a clases testeables, luego crear adaptadores de consola y WinForms |
+| Persistencia | RAM / JSON / SQL Server | RAM simple; JSON local; SQL con integridad y consultas | JSON necesita versionado; SQL necesita instancia y configuración | Diseñar guardado SQL Server como fase, no simular disponibilidad actual |
+| Datos | Matrices y flags / entidades tipadas | Actual es directo; entidades permiten validación y serialización | Cambio a corto plazo | Migrar gradualmente mapas, casillas, equipo y anomalías a entidades/IDs |
+| Dependencias | Mantener paquetes / revisar uso real | Puede habilitar medios futuros | Packages elevan instalación y superficie | Confirmar si LibVLCSharp/System.Drawing se usan en código antes de justificarlos o retirarlos |
 
-## Vinculación con archivos reales
+## Relación con el código real
 
-- `NEXUS_WF.slnx` contiene un proyecto.
-- `NEXUS_WF.csproj` fija .NET 10 Windows y Windows Forms.
-- `Program.cs` arranca directamente Form1.
-- `Form1.Designer.cs` fija 960×640, timer de 16ms y eventos de dibujo/teclado.
-- `Form1.cs` mezcla pantallas, mapas, lista de misiones, reglas de interacción y render.
-- `Modelos.cs` contiene Cadete, Enemigo, Mision y Combate; strings de efectos sugieren IDs/enums.
-- Cadete tiene energía, pero el loop usa especialmente vida/poder/estabilidad.
-- Recursos no es inventario funcional; `tieneArma` no implementa equipamiento.
-- No hay proveedor SQL ni guardado/carga en árbol original.
+- `Program .cs` mezcla Main, terminal, registro, autorización, reglas, exploración y eventos.
+- `EstadoJuego` ya modela energía, estabilidad, vida, poder, clase, arma, detector, dron, PEM, recursos, anomalía y posición: el diseño de jugador debe partir de estos conceptos.
+- Hay costes diferenciados de dron/PEM y habilidades, además de una ventaja HERRAMIENTAS; diseñar energía como recurso de decisión.
+- El mapa Génesis 8×11, zonas exploradas y distancia de 10 m/casilla fundamentan el wireframe de mapa.
+- Evento `AnomaliaDetectada` dispara respuesta de IRIS: sirve como retroalimentación narrativa y técnica.
+- `NEXUS_WF` sugiere una UI oscura futurista, mapas visibles, HUD y pantallas de misión. Se trata de guía visual aproximada; su estructura o reglas no deben atribuirse a la rama de consola.
+- No hay acceso a datos. Toda recomendación SQL es futura.
 
-## Plan viable
+## Recomendación de arquitectura y viabilidad
 
-1. Recuperar código y estandarizar README/.gitignore/docs.
-2. Proteger reglas con pruebas unitarias al extraer dominio.
-3. Separar casos de uso de UI sin cambiar controles.
-4. Incorporar inventario mínimo.
-5. Añadir esquema/migraciones y guardar/cargar SQL Server, con secretos fuera del repositorio.
-6. Probar transacciones, recuperación y doble reclamación en SQL real.
+Conservar la consola ejecutable como referencia funcional; extraer dominio y casos de uso sin depender de Console. Después, construir UI Windows Forms mediante presentación que invoque los mismos casos de uso. Así, `NEXUS_WF` guía el aspecto sin duplicar reglas. Diseñar persistencia SQL Server sobre el estado ya definido pero versionando, evitando guardar estructuras de matrices/strings sin validar.
 
-## Fuentes técnicas oficiales
+## Fuentes oficiales
 
 - [.NET support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core)
-- [Windows Forms documentation](https://learn.microsoft.com/dotnet/desktop/winforms/)
+- [Windows Forms](https://learn.microsoft.com/dotnet/desktop/winforms/)
 - [Microsoft.Data.SqlClient](https://learn.microsoft.com/sql/connect/ado-net/introduction-microsoft-data-sqlclient-namespace)
 - [EF Core SQL Server provider](https://learn.microsoft.com/ef/core/providers/sql-server/)
 - [EF Core migrations](https://learn.microsoft.com/ef/core/managing-schemas/migrations/)
 - [ADO.NET local transactions](https://learn.microsoft.com/dotnet/framework/data/adonet/local-transactions)
 - [GitHub: ignoring files](https://docs.github.com/get-started/git-basics/ignoring-files)
 
-Las páginas oficiales respaldan el alcance de plataforma, proveedor y capacidades de migración/transacción. Revisar versiones exactas al implementar.
+Las fuentes respaldan las capacidades y alcance de plataforma, proveedor, migraciones y transacciones, no la decisión de producto. Revisar versiones exactas durante implementación.
 
-## Verificación de afirmaciones asistidas por IA
+## Verificación de información asistida por IA
 
-Se contrastaron las afirmaciones sobre implementación con los archivos originales del commit `6543e3a` y el árbol completo del repositorio. Se verificaron target framework, WinForms, clases, valores de combate, mapas, misiones y ausencia de proveedor SQL/guardar en el código inspeccionado. Las decisiones sobre separar capas, inventario y EF Core son inferencias recomendadas, no hechos. Las capacidades tecnológicas se contrastaron con las fuentes oficiales anteriores. No se declara verificada compilación ni conexión a SQL Server.
+Los hechos de implementación se contrastaron con el árbol y `Program .cs` de `feature/mi-codigo-csharp`, y con los archivos .csproj/slnx. Se comprobaron los nombres de estado, mapa 8×11, costes/umbrales y existencia de eventos de anomalía. La afirmación de que no hay persistencia se limita al árbol inspeccionado. Arquitectura por capas y SQL Server son inferencias propuestas, verificadas contra documentación técnica oficial pero no implementadas ni probadas en esta rama.
