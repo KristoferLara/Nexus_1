@@ -2,137 +2,144 @@
 
 ## Visión
 
-NEXUS es una aventura de ciencia ficción con exploración táctica y combate por turnos. El jugador encarna a un cadete que se conecta a la realidad simulada Génesis para investigar anomalías y reconstruir qué ocurrió con IRIS. La experiencia combina curiosidad narrativa (archivos incompletos), preparación del personaje y decisiones de riesgo: continuar explorando o regresar a la base.
+NEXUS es una experiencia narrativa de ciencia ficción y exploración de supervivencia. El jugador es un cadete que se conecta a la realidad Génesis para localizar anomalías mientras administra recursos y evita que IRIS interfiera con la misión. La fantasía es operar un sistema experimental desde una terminal: preparar equipo, leer señales incompletas, explorar zonas desconocidas y decidir cuándo gastar energía o retirarse.
 
-La motivación para seguir proviene de desbloquear misiones, conocer la verdad sobre IRIS, dominar los efectos de los enemigos y mejorar nivel/poder. Las recompensas deben comunicar qué cambió y abrir el próximo objetivo.
+Motivan a continuar la historia sobre IRIS, ampliar la exploración, recuperar tecnología y descubrir cómo cada especialización cambia el coste de las acciones. Las alertas del sistema y las consecuencias de las decisiones deben hacer visible la tensión.
 
-**Estado actual:** el prototipo contiene cuatro clases nominales, dos mapas, tres enemigos y tres misiones. No tiene guardado persistente, SQL Server ni inventario funcional de objetos. Las mejoras se identifican como propuestas.
+La interfaz del código de referencia es consola. Los bocetos siguientes describen una experiencia futura deseada; son wireframes conceptuales, no pantallas funcionales ni una indicación de que deba conservarse un prototipo gráfico independiente.
 
-## Ciclo principal de juego
+## Ciclo principal
 
 ```mermaid
 flowchart TD
- A[Preparar cadete en la base] --> B[Consultar misión y consejo]
- B --> C[Entrar en Génesis]
- C --> D[Explorar y revelar casillas]
- D --> E{Punto de interés}
- E -->|Recurso| F[Recoger recurso]
- E -->|Enemigo| G[Combate por turnos]
- E -->|Anomalía| H[Leer pista de IRIS]
+ A[Registrar cadete y elegir especialización] --> B[Preparar equipo / consultar estado]
+ B --> C[Seleccionar operación en el sistema]
+ C --> D[Explorar Génesis con detector]
+ D --> E{¿Qué se detecta?}
+ E -->|Recurso o tecnología| F[Recuperar equipo / gestionar inventario]
+ E -->|Enemigo| G[Elegir ataque, habilidad o retirada]
+ E -->|Anomalía| H[Localizar y activar evento de IRIS]
  F --> D
- G -->|Victoria| I[Marcar objetivo / obtener poder]
- G -->|Retirada| J[Volver a base con consecuencias]
- H --> D
- I --> K[Volver al terminal]
- K --> L[Reclamar XP y poder]
- L --> M[Desbloquear siguiente misión]
+ G -->|Resuelve| D
+ G -->|Peligro| I[Reducir estabilidad / energía / vida]
+ H --> J[Responder con dron o pulso PEM]
+ J --> D
+ D --> K[Revisar estado y riesgo]
+ K -->|Continuar| D
+ K -->|Desconectar| L[Validar estabilidad mínima]
+ L --> M[Concluir misión y conservar progreso]
  M --> B
- J --> A
 ```
 
-Actualmente, cada movimiento en Génesis suma cinco metros y reduce turnos de una capacidad activa; el mapa revela casillas cercanas. Se combate al contactar enemigos, y las misiones se reclaman en el terminal de la base.
+El programa actual presenta un menú de operaciones, movimiento en el territorio, acciones de exploración/equipo y comprobaciones de bloqueo, riesgo y condiciones críticas después de cada acción (el manual informativo no consume turno). La persistencia de progreso es propuesta, no implementada.
 
 ## Mecánicas y reglas
 
-### Exploradores y clases
+### Cadete y clases
 
-En el código el personaje se llama `Cadete`. Se elige FISICO, ARMAMENTO, MANA o HERRAMIENTAS. Hoy son principalmente etiquetas; ARMAMENTO activa el booleano `tieneArma`, sin un sistema general de equipo. La evolución puede otorgar diferencias de habilidad, después de balancearlas. El prototipo es de un único personaje activo.
+El estado `EstadoJuego` incluye nombre, realidad y clases FISICO, ARMAMENTO, MANA y HERRAMIENTAS. El cadete de herramientas reduce costes de dron y PEM. La regla de clase debe explicarse antes de seleccionar y cada coste debe actualizar el HUD.
 
-### Mapas
+### Mapa y exploración
 
-La base y Génesis son matrices de caracteres definidas en `Form1.cs`. Paredes bloquean movimiento. En Génesis se revelan casillas exploradas; los símbolos representan botiquín, anomalía, elevación, base y enemigos. El HUD muestra posición, distancia, recursos, vida/poder y misión. La evolución debe mover mapas a definiciones validadas y conservar niebla de guerra en el guardado.
+Génesis es una matriz de 8×11 con posición del jugador, posición del dron, zonas exploradas y enemigos representados en matrices. Cada casilla equivale a 10 metros. El detector está disponible inicialmente; el dron y el PEM se recuperan durante el flujo. El wireframe de mapa debe priorizar posición, área conocida, señal detectada, peligro, energía y leyenda. En una evolución, mover las matrices a entidades tipadas y guardar la niebla de guerra.
 
-### Energía y otros recursos
+### Energía, estabilidad y poder
 
-`Cadete` inicia con Energía, Estabilidad y Vida en 100, Poder en 0. Vida y Poder se usan en el HUD/combate; la desconexión segura requiere estabilidad ≥15. Las capacidades requieren 100 de Poder, consumen el poder y duran tres turnos. Energía existe en el modelo pero casi no participa en el bucle. La propuesta debe darle un propósito claro y mostrar costes antes de confirmar.
+El código contiene campos de vida, energía, estabilidad, poder, recursos y estados de capacidad/pulso. La desconexión requiere estabilidad ≥15. Desplegar dron cuesta 5 de energía (3 para HERRAMIENTAS), con mínimo 5; el pulso cuesta 15 (10 para HERRAMIENTAS), con mínimo 15, y bloquea IRIS por tres turnos. Si la capacidad especial está activa, el coste del dron se reduce a la mitad. Poder activa capacidad al umbral 50 durante tres turnos. El panel siempre debe mostrar coste y saldo antes de ejecutar acciones.
 
-### Misiones
+### Misiones, anomalías y equipo
 
-Tres misiones lineales tienen como objetivo derrotar enemigos LIQUIDO, FUEGO y VENENO. Solo la misión actual progresa. Al derrotar al objetivo se marca el objetivo cumplido; al regresar al terminal se reclaman 20 de poder y 50 XP y se completa la misión. Los siguientes pasos son extraer misiones como datos y garantizar que la recompensa se reclame una sola vez.
+La partida actual se conduce mediante operaciones de `EjecutarMision`, sistemas de acción y evento `AnomaliaDetectada` que activa una alerta de IRIS. El estado contempla detector, dron, PEM y recursos recolectados. La documentación no debe afirmar una cadena concreta de misiones/recompensas si no existe como sistema en esta rama. Evolución propuesta: modelar objetivos y resultados de misión con estado tipado y guardado atómico.
 
-### Inventario
+El código registra recuperación del dron y módulo PEM, pero no hay una pantalla genérica de inventario. Propuesta: mostrar detector, dron, PEM y recursos recuperados en una lista de equipo, cada uno con estado/coste/acción; evitar inventar objetos consumibles fuera del sistema.
 
-El prototipo solo incrementa `Recursos` al recoger botiquines; no existe pantalla de inventario ni acción para usarlos. La evolución propone una lista pequeña de consumibles y equipo, empezando con botiquín y arma, cantidades visibles y confirmación para objetos escasos.
+### Riesgo y combate
 
-### Combate
+El jugador puede usar acciones que gastan energía y existen costes de ataques/habilidades por clase. El sistema aplica actualizaciones del bloqueo de IRIS, duración de capacidad y comprobaciones de riesgo/condiciones críticas al avanzar una operación. Una UI futura debe anticipar riesgo, indicar el cambio de valores y mostrar respuesta del sistema. Documentar daño y desenlaces específicos después de contrastar cada rama completa del código.
 
-El ataque base inflige 12, el ataque enemigo 10 y huir cuesta 10 de vida. Enemigos tienen 25 de vida. Líquido reduce el daño del jugador a 70%; fuego aumenta el ataque del enemigo 15%; veneno añade 5 de daño por turno tras activarse. Mostrar efecto y resultado con texto además de animación.
+## Diseño de pantallas y wireframes
 
-## Pantallas, navegación y wireframes
+Los wireframes son dibujos legibles de una posible interfaz, no interfaz funcional. Deben basarse en la secuencia consola/terminal del programa.
 
-La ventana actual es fija de 960×640 y se dibuja con `Paint`. Los wireframes son esquemáticos; la pantalla de cadete/inventario es propuesta nueva.
-
-### Menú principal
+### 1. Menú principal / estado operativo
 
 ```text
-┌ NEXUS // TRAINING SYSTEM ───────────────────┐
-│ Cadete: [nombre] Clase: [clase] Nivel: 1    │
-│ Vida ██████████  Poder ░░░░░░░░░░           │
-│ [1] Capacidades   [2] Manual / archivos      │
-│ [3] Nexo multiversal   [0] Desconectar       │
-│ Objetivo actual / mensajes del sistema       │
-└ ↑↓ navegar · Enter seleccionar ─────────────┘
+┌ NEXUS // SISTEMA OPERATIVO ───────────────────┐
+│ Cadete: [nombre] · Realidad: GENESIS          │
+│ Vida ██████████ Energía ████████ Estabilidad  │
+│                                               │
+│ [1] Capacidades y equipamiento                │
+│ [2] Manual de uso                             │
+│ [3] Nexo multiversal                          │
+│ [4] Sistemas de acción                        │
+│ [0] Desconexión segura                        │
+│ Estado de IRIS / alerta reciente              │
+└ Seleccione operación · estado y ayuda visibles┘
 ```
 
-Hoy la selección de clase precede al menú. La evolución añade resumen de misión y “continuar partida”.
+Se corresponde con el menú que actualmente ofrece `EjecutarMision`; el manual es informativo y no consume turno.
 
-### Exploración / mapa
+### 2. Exploración / mapa
 
 ```text
-┌ MAPA GÉNESIS ──────────────────┬ INFORMACIÓN ┐
-│ ? ? ? ? ? ? ?                  │ Posición    │
-│ ? ⌂ · · ◆ · ?                  │ Distancia   │
-│ ? · Cadete · ?                 │ Botiquines  │
-│ ? · ⚠ · ☠ · ?                 │ Leyenda     │
-│ WASD mover · Esc salir         ├ CADETE ─────┤
-│                                │ Vida / Poder│
-│                                │ Misión      │
-└────────────────────────────────┴─────────────┘
+┌ OPERACIÓN: GÉNESIS ───────────────┬ SENSOR ─────┐
+│ ? ? ? ? ? ? ? ? ? ? ?             │ Señal: baja │
+│ ? · · · ◆ · · · ? ? ?             │ Anomalía    │
+│ ? · Cadete · · · ? ? ?             │ Coordenada  │
+│ ? · · ⚠ · · · · ? ? ?             │ Dron: listo │
+│                                  │ Energía     │
+│ WASD / opción: mover             │ Estabilidad │
+└ Estado, coste y siguiente acción ┴─────────────┘
 ```
 
-El prototipo muestra mapa a la izquierda y leyenda/HUD a la derecha; Escape sale al menú. Propuesta: acceso consistente a misión, cadete e inventario y confirmación antes de abandonar una salida.
+La lógica real tiene matriz y zonas exploradas; los controles concretos deben respetar el código de la rama al diseñar una interfaz final.
 
-### Misiones / terminal
+### 3. Misiones / terminal de operación
 
 ```text
-┌ NEXUS // TERMINAL DE MISIONES ───────────────┐
-│ [1] EL PRIMER OBJETIVO       ACTUAL           │
-│     Derrota al enemigo LIQUIDO                │
-│ [2] LA PRUEBA DE FUEGO       BLOQUEADA        │
-│ [3] EL ÚLTIMO VENENO         BLOQUEADA        │
-│ Detalle: consejo, progreso, recompensa         │
-│ [S] reclamar al cumplir · [Esc] regresar      │
-└───────────────────────────────────────────────┘
+┌ REGISTRO DE OPERACIÓN ────────────────────────┐
+│ Objetivo: investigar señal anómala            │
+│ Estado: no localizada / localizada / resuelta  │
+│ Pista de NEXUS: [mensaje del sistema]          │
+│ Riesgo IRIS: [bajo / alerta / crítico]         │
+│                                               │
+│ [1] Ver objetivos   [2] Continuar exploración │
+│ [3] Volver a base   [0] Desconectar            │
+└ Resultado, coste de acción y retroalimentación┘
 ```
 
-### Exploradores / inventario (propuesta)
+Esta es una propuesta de representación de la operación, no una lista de misiones existente afirmada por el código.
+
+### 4. Cadete / equipo
 
 ```text
-┌ CADETE ────────────────────┬ INVENTARIO ─────┐
-│ Nombre y clase             │ Botiquín × 2    │
-│ Nivel / experiencia        │ Equipo: arma    │
-│ Vida · Energía · Poder     │ Capacidad usada │
-│ Estabilidad                │ [Usar] [Equipar]│
-│ [Esc] volver               │ descripción     │
-└───────────────────────────┴─────────────────┘
+┌ CADETE ────────────────────┬ EQUIPO ──────────┐
+│ Nombre / especialización   │ Detector: activo │
+│ Vida                       │ Dron: recuperado │
+│ Energía                    │ PEM: disponible  │
+│ Estabilidad                │ Recursos: [n]    │
+│ Poder / capacidad activa   │ Coste de acción  │
+│ [Volver]                   │ [Usar] [Equipar] │
+└───────────────────────────┴───────────────────┘
 ```
 
-El actual solo muestra estadísticas; no mantiene lista de objetos ni permite usarlos.
+La rama actual contempla estos datos de estado; una lista navegable de equipo y sus acciones requiere trabajo de interfaz.
 
 ## Experiencia de usuario
 
-- Mantener alto contraste y texto legible; reservar fuente monoespaciada para títulos/datos.
-- Poner objetivo y acción principal primero; HUD persistente para recursos esenciales.
-- No expresar estados solo mediante color: combinar color con texto/icono.
-- Mantener Escape para volver, Enter para confirmar y WASD/flechas para mover.
-- Mostrar controles pertinentes en cada pantalla y conservar estado al regresar.
-- Confirmar consumo de objetos raros y desconexión; comunicar daño, coste, recompensa y guardado.
-- Usar etiquetas junto a iconos y selección/foco evidente.
+- Mantener el lenguaje de sistema/terminal y explicar en palabras comunes cualquier término técnico del juego.
+- Jerarquía: acción/objetivo activo, estado de riesgo, recursos y luego detalles narrativos.
+- Legibilidad de consola: no depender de ancho fijo excesivo; permitir fallback sin Unicode/color.
+- Consistencia entre etiquetas de energía, estabilidad, poder, vida y recursos.
+- Mostrar controles y coste junto a cada opción; Escape/volver debe ser predecible.
+- Retroalimentar movimiento, detección, recogida, gasto, cambio de riesgo y evento IRIS con texto conciso.
+- No depender exclusivamente de color o Beep; ofrecer descripción textual para alertas.
+- Requerir confirmación para desconexión si es insegura o una acción irreversible.
 
 ## Alcance y restricciones
 
-**Prioridad MVP:** conservar el flujo ya existente; extraer reglas de UI; inventario mínimo para inspeccionar/usar botiquines; guardar/cargar progreso local en SQL Server una vez definido el esquema; documentar controles y errores.
+**Prioridad:** conservar flujo de registro/selección, menú operativo, exploración Génesis, costes de energía/clase, dron/PEM, anomalías y riesgo de IRIS; separar reglas de Console; añadir persistencia SQL Server después de acordar modelo y seguridad; ofrecer UI clara que pueda ser consola primero y gráfica después.
 
-**Opcional:** más realidades/mapas, misiones, habilidades balanceadas por clase, equipo, sonido, accesibilidad avanzada, localización, logros y sincronización.
+**Opcional:** más realidades, variedad de anomalías/enemigos, progresión por especialidad, presentación audiovisual y accesibilidad extendida.
 
-**Restricciones:** Windows Forms y .NET 10 Windows; UI no multiplataforma. No hay hoy SQL, guardado, cuentas ni multijugador. Ventana fija 960×640. No versionar credenciales. Las propuestas no se deben presentar como implementadas.
+**Restricciones:** proyecto base es .NET 10 consola; dependencias declaradas deben validarse por uso real. Estado no persistente y contraseña hardcodeada son limitaciones actuales, no diseño final. NEXUS_WF no es requisito para permanecer en el repositorio. SQL Server, guardado/carga y capas separadas son propuestas. No almacenar secretos en Git.

@@ -1,37 +1,29 @@
 # NEXUS
 
-NEXUS es un prototipo narrativo de exploración y supervivencia de ciencia ficción. En la rama de referencia `feature/mi-codigo-csharp`, el jugador registra un cadete, se autentica, elige Génesis y opera desde una interfaz de consola mientras explora anomalías, administra energía/estabilidad, usa equipo y enfrenta amenazas relacionadas con IRIS.
+NEXUS es un prototipo narrativo de exploración y supervivencia de ciencia ficción. La base funcional para esta documentación está en la rama `feature/mi-codigo-csharp`, donde el jugador registra un cadete, elige Génesis, administra energía y estabilidad, explora anomalías y enfrenta amenazas relacionadas con IRIS desde consola.
 
-## Código de referencia y dirección visual
+## Código de referencia
 
-- **Base de lógica:** rama `feature/mi-codigo-csharp`, proyecto `Nexus_1/Nexus_1.csproj` y archivo `Nexus_1/Program .cs`. Esa rama contiene la implementación C# de consola que fundamenta la documentación.
-- **Referencia de evolución visual:** `NEXUS_WF.slnx` y carpeta `NEXUS_WF/` contienen una aproximación Windows Forms de cómo podría quedar el juego. Se conservan como referencia visual y prototipo paralelo; no reemplazan la base de lógica de consola.
-- `main` mantiene documentación y el prototipo NEXUS_WF reconstruido desde el historial. Consulta la rama de referencia para el flujo C# base.
+La rama `feature/mi-codigo-csharp` contiene el proyecto C# principal: `Nexus_1/Nexus_1.csproj` y `Nexus_1/Program .cs`. Es la fuente de verdad para documentar la lógica y el estado actual. El archivo se llama literalmente `Program .cs` (espacio antes de la extensión).
 
-## Funcionalidades del código de referencia
+## Funcionalidades implementadas en la rama de referencia
 
-El programa de consola contiene registro de nombre/contraseña/realidad, selección entre FISICO, ARMAMENTO, MANA y HERRAMIENTAS, estado del cadete con vida/energía/estabilidad/poder, recursos y equipo (detector, dron y PEM), exploración territorial con mapa Génesis, zonas exploradas, ubicación del dron y enemigos, anomalías y evento de detección de IRIS. La secuencia y las funciones se detallan en [arquitectura actual](docs/arquitectura-actual.md).
+Registro de nombre, contraseña y realidad; selección entre FISICO, ARMAMENTO, MANA y HERRAMIENTAS; estado del cadete con vida, energía, estabilidad y poder; detector, dron y PEM; exploración territorial del mapa Génesis con zonas exploradas, distancia y enemigos; recursos, capacidades y eventos de anomalía/detección de IRIS. Consulta [arquitectura actual](docs/arquitectura-actual.md) para detalles.
 
-El prototipo Windows Forms añade una aproximación gráfica con mapas, combate por turnos, misiones secuenciales y escenas dibujadas. Sus comportamientos no deben confundirse con lo que actualmente implementa la rama de consola.
+## Tecnologías y ejecución
 
-## Tecnologías
-
-El proyecto de consola de la rama de referencia apunta a C#/.NET 10 (`net10.0`) e incluye paquetes LibVLCSharp, System.Drawing.Common y VideoLAN.LibVLC.Windows. El proyecto separado `NEXUS_WF` apunta a .NET 10 Windows y Windows Forms. No hay persistencia SQL Server implementada.
-
-## Ejecutar el código de referencia
-
-Requisitos: SDK de .NET 10. Desde la raíz del repositorio:
+El proyecto apunta a C#/.NET 10 (`net10.0`) y declara LibVLCSharp, System.Drawing.Common y VideoLAN.LibVLC.Windows. Requiere SDK de .NET 10:
 
 ```powershell
 dotnet run --project ".\Nexus_1\Nexus_1.csproj"
 ```
 
-Para consultar/ejecutar la aproximación gráfica Windows Forms, se requiere Windows y .NET 10 SDK; abrir `NEXUS_WF.slnx` en Visual Studio compatible o ejecutar su proyecto.
+La solución de esa rama es `Nexus_1.slnx`.
 
 ## Documentación
 
-La visión de jugador, wireframes y mecánicas están en `docs/diseno-del-juego.md`. `docs/arquitectura-actual.md` describe específicamente la rama de consola `feature/mi-codigo-csharp`; el resto separa propuesta de arquitectura, SQL Server e investigación técnica. Diagramas y bocetos editables están en `docs/evidencias/`.
+Consulta `docs/` para el diseño del juego, arquitectura actual y propuesta, modelo SQL Server propuesto y análisis técnico. Wireframes y diagramas editables están en `docs/evidencias/`. La documentación distingue hechos del código de propuestas.
 
 ## Persistencia
 
-La partida actualmente vive en memoria; SQL Server, guardado/carga y la arquitectura por capas son objetivos propuestos, no funciones disponibles.
+El estado vive en memoria; SQL Server, guardado/carga y arquitectura por capas son propuestas, no funcionalidades disponibles actualmente.
