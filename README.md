@@ -1,54 +1,61 @@
 # NEXUS
 
-NEXUS es un prototipo narrativo de ciencia ficción, exploración y supervivencia. El jugador interpreta a un cadete que se conecta con la realidad Génesis, administra sus recursos y responde a anomalías vinculadas con IRIS.
+NEXUS es un prototipo de ciencia ficción, exploración y supervivencia. El jugador controla a un cadete que explora Génesis, administra recursos y enfrenta anomalías y enemigos vinculados con IRIS.
 
-## Código fuente y estado del repositorio
+## Versiones disponibles
 
-La solución funcional de consola está actualmente en la rama **`feature/mi-codigo-csharp`**. La rama predeterminada `main` contiene esta documentación y las evidencias, pero todavía no incluye la solución C#; por eso, el comando de ejecución requiere cambiar a la rama de código:
+El repositorio tiene tres ramas con propósitos distintos:
+
+| Rama | Contenido |
+|---|---|
+| [`main`](https://github.com/KristoferLara/Nexus_1/tree/main) | Documentación, análisis y propuestas técnicas. Es la rama predeterminada. |
+| [`nexus_ani`](https://github.com/KristoferLara/Nexus_1/tree/nexus_ani) | Solución C# con los proyectos de consola y Windows Forms. |
+| [`feature/mi-codigo-csharp`](https://github.com/KristoferLara/Nexus_1/tree/feature/mi-codigo-csharp) | Versión C# de consola y base de referencia para parte de la documentación técnica. |
+
+Las ramas se desarrollaron por separado. Para trabajar con una versión, cambia explícitamente a su rama; el contenido de `main` no incluye los proyectos C#.
+
+## Requisitos
+
+- Windows para ejecutar Windows Forms.
+- SDK de .NET 10.
+- Visual Studio compatible con .NET 10 y Windows Forms, o la CLI de .NET.
+
+## Ejecutar Windows Forms
+
+Desde la raíz del repositorio:
+
+```bash
+git switch nexus_ani
+dotnet run --project Nexus_1_WinForms/Nexus_1_WinForms.csproj
+```
+
+También puedes abrir `Nexus_1.slnx` en Visual Studio y seleccionar `Nexus_1_WinForms` como proyecto de inicio. La solución incluye también el proyecto de consola.
+
+## Ejecutar la versión de consola
 
 ```bash
 git switch feature/mi-codigo-csharp
+dotnet run --project "Nexus_1/Nexus_1.csproj"
 ```
 
-La solución es `Nexus_1.slnx`; el proyecto se encuentra en `Nexus_1/Nexus_1.csproj` y su archivo de entrada se llama literalmente `Nexus_1/Program .cs` (con un espacio antes de `.cs`).
+El archivo de entrada de consola se llama literalmente `Program .cs`, con un espacio antes de `.cs`.
 
-## Funcionalidades implementadas
+## Funcionalidades
 
-En la rama de código, el prototipo incluye registro de cadete, selección de una de cuatro clases (FISICO, ARMAMENTO, MANA y HERRAMIENTAS), consulta de estado, exploración de Génesis, movimiento y detección de anomalías, recursos, dron y pulso PEM, y eventos de riesgo asociados a IRIS. La experiencia implementada es de consola.
+La versión Windows Forms incluye selección de cuatro clases (FISICO, ARMAMENTO, MANA y HERRAMIENTAS), exploración de Génesis y la base, combate por turnos, misiones, recompensas, sprites pixel art y temas visuales. La versión de consola tiene su propio flujo de juego; consulta la documentación para saber a qué rama corresponde cada descripción.
 
-El progreso se mantiene en memoria durante la sesión. Guardado/carga, SQL Server y la arquitectura por capas aparecen en la documentación como propuestas y aún no están implementados.
+## Persistencia: estado actual
 
-## Tecnologías
-
-- C# y .NET 10 (`net10.0`)
-- Aplicación de consola
-- Paquetes declarados en el proyecto: LibVLCSharp, System.Drawing.Common y VideoLAN.LibVLC.Windows
-
-Se requiere el SDK de .NET 10 instalado.
-
-## Ejecución
-
-Desde la raíz del repositorio, después de cambiar a la rama funcional:
-
-```bash
-dotnet run --project "./Nexus_1/Nexus_1.csproj"
-```
-
-En PowerShell también puedes ejecutar:
-
-```powershell
-dotnet run --project ".\Nexus_1\Nexus_1.csproj"
-```
+El progreso de la partida se mantiene en memoria durante la ejecución. Al iniciar, el prototipo crea una partida nueva. **SQL Server, guardado/carga y persistencia entre ejecuciones no están implementados** en los proyectos inspeccionados; se describen como propuestas técnicas para una evolución posterior.
 
 ## Documentación
 
-La carpeta [`docs/`](docs/) contiene:
-
+- [Estructura de Windows Forms](docs/estructura-winforms.md)
 - [Diseño del juego](docs/diseno-del-juego.md)
 - [Arquitectura actual](docs/arquitectura-actual.md)
 - [Arquitectura propuesta](docs/arquitectura-propuesta.md)
-- [Modelo de datos propuesto](docs/modelo-de-datos-propuesto.md)
+- [Modelo de datos propuesto para SQL Server](docs/modelo-de-datos-propuesto.md)
 - [Análisis técnico](docs/analisis-tecnico.md)
 - [Evidencias, bocetos y diagramas](docs/evidencias/)
 
-Los documentos separan el comportamiento observado en el código de las propuestas futuras.
+Los documentos identifican la rama y separan el comportamiento inspeccionado de las mejoras propuestas.
